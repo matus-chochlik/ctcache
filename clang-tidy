@@ -1,0 +1,5 @@
+#!/bin/bash
+#  Copyright (c) 2020 Matus Chochlik
+#  clang-tidy cache wrapper script
+CT=/usr/bin/clang-tidy
+$(dirname ${0})/clang-tidy-cache "${CT}" "${@}"

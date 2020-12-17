@@ -1,0 +1,264 @@
+#!/usr/bin/env python3
+# coding: UTF-8
+# Copyright (c) 2019-2020 Matus Chochlik
+# Distributed under the Boost Software License, Version 1.0.
+# See accompanying file LICENSE_1_0.txt or copy at
+#  http://www.boost.org/LICENSE_1_0.txt
+
+import os
+import re
+import sys
+import errno
+import shutil
+import getpass
+import logging
+import hashlib
+import requests
+import tempfile
+import subprocess
+
+# ------------------------------------------------------------------------------
+class ClangTidyCacheOpts(object):
+    # --------------------------------------------------------------------------
+    def __init__(self, log, args):
+        self._original_args = args
+        self._clang_tidy_args = None
+        self._compiler_args = None
+
+        self._strip_list = os.getenv("CTCACHE_STRIP", "").split(':')
+
+        for i in range(len(args)):
+            if args[i] == "--":
+                self._clang_tidy_args = args[:i]
+                self._compiler_args = args[i+1:]
+
+        if self._compiler_args:
+            for i in range(1, len(self._compiler_args)):
+                if self._compiler_args[i-1] in ["-o", "--output"]:
+                    self._compiler_args[i] = "-"
+                if self._compiler_args[i-1] in ["-c"]:
+                    self._compiler_args[i-1] = "-E"
+
+    # --------------------------------------------------------------------------
+    def should_print_dir(self):
+        try: return self._original_args[0] == "--cache-dir"
+        except IndexError: return False
+    # --------------------------------------------------------------------------
+    def should_remove_dir(self):
+        try: return self._original_args[0] == "--clean"
+        except IndexError: return False
+    # --------------------------------------------------------------------------
+    def original_args(self):
+        return self._original_args
+    # --------------------------------------------------------------------------
+    def clang_tidy_args(self):
+        return self._clang_tidy_args
+    # --------------------------------------------------------------------------
+    def compiler_args(self):
+        return self._compiler_args
+    # --------------------------------------------------------------------------
+    def cache_dir(self):
+        return os.getenv(
+            "CTCACHE_DIR",
+            os.path.join(
+                tempfile.tempdir if tempfile.tempdir else "/tmp",
+                "ctcache-"+getpass.getuser()
+            )
+        )
+
+    # --------------------------------------------------------------------------
+    def adjust_chunk(self, x):
+        if os.path.exists(x):
+            x = os.path.realpath(x)
+        for item in self._strip_list:
+            x = x.replace(item, '')
+        x.strip()
+        if x:
+            return x.encode("utf8")
+
+    # --------------------------------------------------------------------------
+    def rest_host(self):
+        return os.getenv("CTCACHE_HOST", "localhost")
+
+    # --------------------------------------------------------------------------
+    def rest_port(self):
+        return int(os.getenv("CTCACHE_PORT", 5000))
+
+# ------------------------------------------------------------------------------
+class ClangTidyCacheHash(object):
+    # --------------------------------------------------------------------------
+    def __init__(self):
+        self._hash = hashlib.sha1()
+        # self._dump = open("/tmp/ctc.log", "w+")
+        self._dump = None
+
+    # --------------------------------------------------------------------------
+    def __del__(self):
+        if self._dump:
+            self._dump.close()
+
+    # --------------------------------------------------------------------------
+    def update(self, content):
+        if content:
+            self._hash.update(content)
+            if self._dump:
+                self._dump.write(content.decode("ascii"))
+                self._dump.write("\n")
+
+    # --------------------------------------------------------------------------
+    def hexdigest(self):
+        return self._hash.hexdigest()
+
+# ------------------------------------------------------------------------------
+source_file_change_re = re.compile(r'#\s+\d+\s+"([^"]+)".*')
+def source_file_changed(cpp_line):
+    found = source_file_change_re.match(cpp_line)
+    if found:
+        found_path = found.group(1)
+        if os.path.isfile(found_path):
+            return os.path.realpath(os.path.dirname(found_path))
+
+# ------------------------------------------------------------------------------
+def find_ct_config(search_path):
+    while search_path and search_path != "/":
+        search_path = os.path.dirname(search_path)
+        ct_config = os.path.join(search_path, '.clang-tidy')
+        if os.path.isfile(ct_config):
+            return ct_config
+
+# ------------------------------------------------------------------------------
+def hash_inputs(opts):
+    co_args = opts.compiler_args()
+    ct_args = opts.compiler_args()
+    if not co_args and not ct_args:
+        return None
+
+    result = ClangTidyCacheHash()
+
+    proc = subprocess.Popen(
+        co_args,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE
+    )
+    stdout, stderr = proc.communicate()
+    if stderr: return None
+
+    src_to_ct_config = dict()
+    ct_config_paths = set()
+
+    for line in stdout.splitlines():
+        line = line.decode("ascii")
+        search_path = source_file_changed(line)
+        if search_path:
+            try:
+                ct_config_path = src_to_ct_config[search_path]
+            except KeyError:
+                ct_config_path = find_ct_config(search_path)
+                src_to_ct_config[search_path] = ct_config_path
+
+            if ct_config_path:
+                ct_config_paths.add(ct_config_path)
+
+        chunk = opts.adjust_chunk(line)
+        result.update(chunk)
+
+    for ct_config_path in sorted(ct_config_paths):
+        with open(ct_config_path, "rt") as ct_config:
+            for line in ct_config.readlines():
+                chunk = opts.adjust_chunk(line)
+                result.update(chunk)
+
+    for chunk in sorted(set([opts.adjust_chunk(arg) for arg in co_args[1:]])):
+        result.update(chunk)
+    for chunk in sorted(set([opts.adjust_chunk(arg) for arg in ct_args[1:]])):
+        result.update(chunk)
+
+    return result.hexdigest()
+# ------------------------------------------------------------------------------
+def mkdir_p(path):
+    try: os.makedirs(path)
+    except OSError as os_error:
+        if os_error.errno == errno.EEXIST and os.path.isdir(path): pass
+        else: raise
+# ------------------------------------------------------------------------------
+def make_path(opts, digest):
+    return os.path.join(
+        opts.cache_dir(),
+        digest[:2],
+        digest[2:]
+    )
+# ------------------------------------------------------------------------------
+def make_query_url(opts, digest):
+    return "http://%(host)s:%(port)d/is_cached/%(digest)s" % {
+        "host": opts.rest_host(),
+        "port": opts.rest_port(),
+        "digest": digest
+    }
+# ------------------------------------------------------------------------------
+def make_store_url(opts, digest):
+    return "http://%(host)s:%(port)d/cache/%(digest)s" % {
+        "host": opts.rest_host(),
+        "port": opts.rest_port(),
+        "digest": digest
+    }
+# ------------------------------------------------------------------------------
+def is_cached(opts, digest):
+    path = make_path(opts, digest)
+    if os.path.isfile(path):
+        os.utime(path, None)
+        return True
+    try:
+        query = requests.get(make_query_url(opts, digest), timeout=3)
+        if query.status_code == 200:
+            if query.json() == True:
+                return True
+    except: pass
+    return False
+# ------------------------------------------------------------------------------
+def store_in_cache(opts, digest):
+    try:
+        query = requests.get(make_store_url(opts, digest), timeout=3)
+        if query.status_code == 200:
+            return
+    except: pass
+    p = make_path(opts, digest)
+    mkdir_p(os.path.dirname(p))
+    open(p, "w").close()
+# ------------------------------------------------------------------------------
+def run_clang_tidy_cached(log, opts):
+    digest = None
+    try:
+        digest = hash_inputs(opts)
+        if digest:
+            if is_cached(opts, digest):
+                return 0
+    except Exception as error:
+        log.error(str(error))
+
+    result = subprocess.call(opts.original_args())
+
+    if result == 0 and digest:
+        try: store_in_cache(opts, digest)
+        except Exception as error:
+            log.error(str(error))
+
+    return result
+# ------------------------------------------------------------------------------
+def main():
+    log = logging.getLogger(os.path.basename(__file__))
+    try:
+        opts = ClangTidyCacheOpts(log, sys.argv[1:])
+        if opts.should_print_dir():
+            print(opts.cache_dir())
+        elif opts.should_remove_dir():
+            import shutil
+            shutil.rmtree(opts.cache_dir())
+        else:
+            return run_clang_tidy_cached(log, opts)
+        return 0
+    except Exception as error:
+        log.error(str(error))
+        return 1
+# ------------------------------------------------------------------------------
+if __name__ == "__main__":
+    sys.exit(main())
