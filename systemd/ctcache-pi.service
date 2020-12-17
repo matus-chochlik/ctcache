@@ -1,0 +1,13 @@
+[Unit]
+Description=clang-tidy cache service.
+
+[Service]
+Type=simple
+ExecStartPre=mkdir -p /home/pi/.cache/ctcache-stats
+ExecStart=/usr/bin/python3 /home/pi/bin/clang-tidy-cache-server.py --stats-path /home/pi/.cache/ctcache-stats
+User=pi
+Restart=always
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target
