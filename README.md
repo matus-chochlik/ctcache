@@ -57,15 +57,34 @@ REAL_CT=/full/path/to/clang-tidy
 Make sure to set write permissions properly to prevent tampering by unauthorized
 users!
 
-### The server
+### Running the server
 
 The cache HTTP server can simply be run by executing `clang-tidy-cache-server`.
 The server stores the hash database by default in the `.cache/` subdirectory
 of the home directory of the user under whose account it is executed.
-This can be changed by command-line option.
+This can be changed by a command-line option.
 
 Invoke `clang-tidy-cache-server` with the `--help` argument to see all available
 command-line options.
 
-The `systemd/` subdirectory also contains service file(s) that can be used
-to run the server as a service (for example on a RPi on the local network).
+#### As systemd service
+
+The `systemd/` sub-directory also contains service file(s) that can be used
+to run the server as a systemd service (for example on a RPi on the local
+network).
+
+#### In a docker container
+
+The server can also be run in a Docker container. The provided `Dockerfile`
+can be used to build the docker image.
+
+```
+docker build -t ctcache .
+```
+
+The `CTCACHE_PORT` docker environment variable can be used to set the server
+port number.
+
+```
+docker run -e CTCACHE_PORT=5000 -p "80:5000" -it --rm --name ctcache ctcache
+```
