@@ -1,0 +1,10 @@
+.charts {
+}
+
+.chart {
+    width: 48vw;
+    height: 95vh;
+    float: left;
+    padding: 4px;
+    border: 1px solid gray;
+}  

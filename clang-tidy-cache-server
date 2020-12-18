@@ -570,7 +570,7 @@ class ClangTidyCache(object):
         return output
 
     # --------------------------------------------------------------------------
-    def age_histogram_img(self, imgfmt="svg"):
+    def days_histogram_img(self, imgfmt="svg"):
 
         fig, spl = plt.subplots()
         fig.set_size_inches(10, 10)
@@ -681,15 +681,30 @@ def ctc_image_hits_histogram():
     except Exception as error:
         return str(error)
 # ------------------------------------------------------------------------------
-@ctcache_app.route("/image/age_histogram.svg")
+@ctcache_app.route("/image/days_histogram.svg")
 def ctc_image_age_histogram():
     try:
         return flask.send_file(
-            clang_tidy_cache.age_histogram_img(),
+            clang_tidy_cache.days_histogram_img(),
             mimetype="image/svg+xml"
         )
     except Exception as error:
         return str(error)
+# ------------------------------------------------------------------------------
+@ctcache_app.route("/static/<file_name>")
+def ctc_static_file(file_name):
+    try:
+        return flask.send_from_directory(
+            os.path.join(os.path.dirname(os.path.realpath(__file__)), 'static'),
+            filename=file_name,
+            as_attachment=False
+        )
+    except FileNotFoundError:
+        flask.abort(404)
+# ------------------------------------------------------------------------------
+@ctcache_app.route("/")
+def ctc_server_root():
+    return flask.redirect("/static/index.html", code=302)
 # ------------------------------------------------------------------------------
 if __name__ == "__main__":
     argparser = get_argument_parser()
