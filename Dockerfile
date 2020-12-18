@@ -11,6 +11,5 @@ COPY static/ ./static/
 RUN pip install --no-cache-dir -r requirements.txt
 
 CMD  "python" "./clang-tidy-cache-server" \
-    "--save-path"  "/var/lib/ctcache" \
-    "--stats-path" "/var/lib/ctcache" \
+    "--save-path"  "/var/lib/ctcache/data.json.gz" \
     "--port" "${CTCACHE_PORT}"
