@@ -48,7 +48,7 @@ in the executable search path list, before the directory where the real
 
 The wrapper script typically contains something along these lines:
 
-```
+```shell
 #!/bin/bash
 REAL_CT=/full/path/to/clang-tidy
 /path/to/clang-tidy-cache "${REAL_CT}" "${@}"
@@ -87,4 +87,11 @@ port number.
 
 ```
 docker run -e CTCACHE_PORT=5000 -p "80:5000" -it --rm --name ctcache ctcache
+```
+
+In order to make the saved cache data persistent in Docker, you can create
+a volume and map it to the `/var/lib/ctcache` directory:
+```
+docker volume create ctcache
+docker run -p "80:5000" -v "ctcache:/var/lib/ctcache" -it --rm --name ctcache ctcache
 ```
