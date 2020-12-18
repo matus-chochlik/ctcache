@@ -474,6 +474,10 @@ class ClangTidyCache(object):
         return "%d [wk]" % (s / 604800)
 
     # --------------------------------------------------------------------------
+    @staticmethod
+    def _blend(lt, rt, f):
+        return tuple(max(min(l * (1.0 - f) + r * f, 1), 0) for l, r in zip(lt, rt))
+    # --------------------------------------------------------------------------
     def age_hits_scatter_img(self, imgfmt="svg"):
 
         data = {
@@ -501,7 +505,8 @@ class ClangTidyCache(object):
         tick_min_fmt = pltckr.NullFormatter()
 
         fig, spl = plt.subplots()
-        fig.set_size_inches(10, 10)
+        plt.style.use('dark_background')
+        fig.set_size_inches(8, 5)
         spl.set_xscale("log")
         spl.set_yscale("log")
         spl.xaxis.set_minor_locator(tick_min_loc)
@@ -543,19 +548,29 @@ class ClangTidyCache(object):
     def hits_histogram_img(self, imgfmt="svg"):
 
         fig, spl = plt.subplots()
-        fig.set_size_inches(10, 10)
+        plt.style.use('dark_background')
+        fig.set_size_inches(8, 5)
+        spl.xaxis.set_minor_locator(pltckr.NullLocator())
+        spl.xaxis.set_major_locator(pltckr.MaxNLocator(integer=True, min_n_ticks=1))
 
+        hits_hist = self.hit_count_histogram()
+        lc = (1.0, 0.3, 0.1)
+        rc = (0.3, 1.0, 0.1)
         x = []
         y = []
+        c = []
 
-        for hits, count in self.hit_count_histogram().items():
-            x.append(hits)
-            y.append(count)
+        if hits_hist:
+            m = max(hits_hist)
+            for hits, count in hits_hist.items():
+                x.append(hits)
+                y.append(count)
+                c.append(self._blend(lc, rc, float(hits-1) / m if m > 0 else 0))
 
         spl.set_ylabel("number of hashes")
         spl.set_xlabel("number of hits")
         spl.grid(which="major", axis="y", alpha=0.2)
-        spl.bar(x, y)
+        spl.bar(x, y, color=c)
 
         output = io.BytesIO()
         plt.savefig(
@@ -573,19 +588,29 @@ class ClangTidyCache(object):
     def days_histogram_img(self, imgfmt="svg"):
 
         fig, spl = plt.subplots()
-        fig.set_size_inches(10, 10)
+        plt.style.use('dark_background')
+        fig.set_size_inches(8, 5)
+        spl.xaxis.set_minor_locator(pltckr.NullLocator())
+        spl.xaxis.set_major_locator(pltckr.MaxNLocator(integer=True, min_n_ticks=1))
 
+        days_hist = self.age_days_histogram()
+        lc = (1.0, 0.8, 0.1)
+        rc = (0.3, 0.1, 0.8)
         x = []
         y = []
+        c = []
 
-        for hits, count in self.age_days_histogram().items():
-            x.append(hits)
-            y.append(count)
+        if days_hist:
+            m = max(days_hist)
+            for hits, count in days_hist.items():
+                x.append(hits)
+                y.append(count)
+                c.append(self._blend(lc, rc, float(hits-1) / m if m > 0 else 0))
 
-        spl.set_ylabel("number of days")
-        spl.set_xlabel("number of hits")
+        spl.set_ylabel("number of hashes")
+        spl.set_xlabel("number of days")
         spl.grid(which="major", axis="y", alpha=0.2)
-        spl.bar(x, y)
+        spl.bar(x, y, color=c)
 
         output = io.BytesIO()
         plt.savefig(
@@ -600,8 +625,24 @@ class ClangTidyCache(object):
         return output
 
 # ------------------------------------------------------------------------------
+class ClangTidyCacheApp(flask.Flask):
+    # --------------------------------------------------------------------------
+    @staticmethod
+    def _get_static_folder():
+        return os.path.join(
+            os.path.realpath(
+                os.environ.get('CTCACHE_WEBROOT', os.path.dirname(__file__))
+            ),
+            'static'
+        )
+    # --------------------------------------------------------------------------
+    def __init__(self):
+        flask.Flask.__init__(self, "clang-tidy-cache")
+        self.config["STATIC_FOLDER"] = self._get_static_folder()
+
+# ------------------------------------------------------------------------------
 clang_tidy_cache = None
-ctcache_app = flask.Flask("clang-tidy-cache")
+ctcache_app = ClangTidyCacheApp()
 # ------------------------------------------------------------------------------
 @ctcache_app.route("/cache/<hashstr>")
 def ctc_cache(hashstr):
@@ -695,7 +736,7 @@ def ctc_image_age_histogram():
 def ctc_static_file(file_name):
     try:
         return flask.send_from_directory(
-            os.path.join(os.path.dirname(os.path.realpath(__file__)), 'static'),
+            ctcache_app.config["STATIC_FOLDER"],
             filename=file_name,
             as_attachment=False
         )
