@@ -3,13 +3,39 @@
 <html>
 <head>
 	<meta charset="utf-8"/>
-	<title>SVG test</title>
+	<title>clang-tidy-cache-server dashboard</title>
 	<link rel="stylesheet" type="text/css" href="/static/ctcache.css">
+	<script type="text/javascript" src="/static/jquery.js"></script>
+	<script type="text/javascript" src="/static/ctcache.js"></script>
 </head>
 <body>
-	<div class="charts">
-		<img class="chart" id="hits_histogram" src="/image/hits_histogram.svg"/>
-		<img class="chart" id="days_histogram" src="/image/days_histogram.svg"/>
+	<div class="dashboard">
+	    <div class="readouts">
+            <div class="readout">
+                <div class="readout-header">Hit rate</div>
+                <div class="readout-value" id="hit_rate_value">N/A</div>
+            </div>
+            <div class="readout">
+                <div class="readout-header">Cached count</div>
+                <div class="readout-value" id="cached_count_value">N/A</div>
+            </div>
+            <div class="readout">
+                <div class="readout-header">Cleaned count</div>
+                <div class="readout-value" id="cleaned_count_value">N/A</div>
+            </div>
+            <div class="readout">
+                <div class="readout-header">Saved ago</div>
+                <div class="readout-value" id="saved_ago_value">N/A</div>
+            </div>
+            <div class="readout">
+                <div class="readout-header">Uptime</div>
+                <div class="readout-value" id="uptime_value">N/A</div>
+            </div>
+        </div>
+	    <div class="charts">
+            <img class="chart" id="hits_histogram" src="/image/hits_histogram.svg"/>
+            <img class="chart" id="days_histogram" src="/image/days_histogram.svg"/>
+        </div>
 	</div>
 </body>
 </html>

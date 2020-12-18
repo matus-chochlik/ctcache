@@ -1,10 +1,43 @@
+.dashboard {
+    font-family: Helvetica;
+    display: grid;
+    grid-template-rows: 25vh 70vh;
+    grid-template-areas: "readouts" "charts";
+    width: 100vw;
+}
+
+.readouts {
+    display: grid;
+    grid-area: readouts;
+    grid-template-columns: repeat(5, 1fr);
+    border-collapse: collapse;
+}
+
+.readout {
+    display: grid;
+    grid-template-areas: "header" "value";
+    padding: 1em;
+}
+
+.readout-header {
+    grid-area: header;
+    font-size: small;
+    color: gray;
+}
+
+.readout-value {
+    grid-area: value;
+    text-align: center;
+    font-size: 48pt;
+}
+
 .charts {
+    display: grid;
+    grid-area: charts;
+    grid-template-columns: repeat(2, 1fr);
 }
 
 .chart {
-    width: 48vw;
-    height: 95vh;
-    float: left;
-    padding: 4px;
-    border: 1px solid gray;
-}  
+    width: 49vw;
+    height: 70vh;
+} 
