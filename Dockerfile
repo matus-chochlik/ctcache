@@ -7,6 +7,7 @@ RUN mkdir -p /var/lib/ctcache
 WORKDIR /usr/src/app
 
 COPY clang-tidy-cache-server requirements.txt ./
+COPY static/ ./static/
 RUN pip install --no-cache-dir -r requirements.txt
 
 CMD  "python" "./clang-tidy-cache-server" \
