@@ -578,7 +578,7 @@ class ClangTidyCache(object):
             hist_hits = _reduced(25)
             m = 100 #max(t[1] for t in hits_hist)
             for hmin, hmax, tcount in hist_hits:
-                x.append("%3d-%3d" % (hmin, hmax) if hmin < hmax else "%3d" % hmin)
+                x.append("%d-%d" % (hmin, hmax) if hmin < hmax else "%d" % hmin)
                 y.append(tcount)
                 c.append(self._blend(lc, rc, float(hmax) / m if m > 0 else 0))
 
