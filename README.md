@@ -12,20 +12,20 @@ the same unchanged source code.
 
 ## How it works
 
-`clang-tidy-cache` scans the command-line arguments passed to `clang-tidy`
-and relevant `clang-tidy` configuration files, all source files being analyzed
+`clang-tidy-cache` scans the command-line arguments passed to `clang-tidy`,
+relevant `clang-tidy` configuration files, all source files being analyzed
 and makes a hash uniquely identifying the invocation of `clang-tidy`.
 
-Then it searches if its database contains that hash. If so, `clang-tidy-cache`
-returns immediately without invoking `clang-tidy`. Otherwise `clang-tidy`
+Then it searches if its database contains that hash. If it does, `clang-tidy-cache`
+returns immediately without invoking `clang-tidy`, otherwise `clang-tidy`
 is executed and if it finishes without error, the hash is stored in the database.
 
 ### Local mode
 
 `clang-tidy-cache` by default works as a standalone application and it stores
-its hash database in a directory on the local filesystem. The location
+its hash database in a directory on the local file system. The location
 is determined by the `CTCACHE_DIR` environment variable, by default it
-is a subtree in the temporary directory. This means that the cache may
+is a sub-tree in the temporary directory. This means that the cache may
 be cleared on reboot. If you want the cache to be persistent you need
 to specify a path to a disk-backed file system directory.
 
@@ -75,23 +75,40 @@ network).
 
 #### In a docker container
 
-The server can also be run in a Docker container. The provided `Dockerfile`
-can be used to build the docker image.
+The server can also be run in a [Docker](https://www.docker.com/) container.
+The provided `Dockerfile` can be used to build the docker image.
 
-```
+```shell
 docker build -t ctcache .
 ```
 
 The `CTCACHE_PORT` docker environment variable can be used to set the server
 port number.
 
-```
+```shell
 docker run -e CTCACHE_PORT=5000 -p "80:5000" -it --rm --name ctcache ctcache
 ```
 
 In order to make the saved cache data persistent in Docker, you can create
-a volume and map it to the `/var/lib/ctcache` directory:
-```
+a [volume](https://docs.docker.com/storage/volumes/) and map it
+to the `/var/lib/ctcache` directory:
+
+```shell
 docker volume create ctcache
 docker run -p "80:5000" -v "ctcache:/var/lib/ctcache" -it --rm --name ctcache ctcache
 ```
+
+### The dashboard
+
+The clang tidy cache's HTTP server also serves a couple of web pages
+that are designed to be viewed in a browser.
+The main one is the dashboard that can be accessed by visiting `/` or
+`/static/index.html` at the server's site. For example if the server host name
+is `localhost` and port is `5000` then the dashboard can be visited by
+typing `http://localhost:5000/` into the browser's address bar.
+
+
+![the dashboard](doc/dashboard.png "The dashboard")
+
+It displays basic information about the cache, like cache hit rate, number
+of cached hashes, etc. and some charts.
