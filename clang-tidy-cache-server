@@ -545,11 +545,68 @@ class ClangTidyCache(object):
         return output
 
     # --------------------------------------------------------------------------
+    def total_hits_histogram_img(self, imgfmt="svg"):
+
+        fig, spl = plt.subplots()
+        plt.style.use('dark_background')
+        fig.set_size_inches(5, 5)
+        spl.yaxis.set_major_formatter(pltckr.ScalarFormatter())
+        spl.xaxis.set_minor_locator(pltckr.NullLocator())
+        spl.xaxis.set_major_locator(pltckr.MultipleLocator(1))
+        spl.xaxis.set_tick_params(rotation=90,labelsize=8)
+
+        hits_hist = self.hit_count_histogram()
+        lc = (1.0, 0.3, 0.1)
+        rc = (0.3, 1.0, 0.1)
+        x = []
+        y = []
+        c = []
+
+        def _reduced(maxlen):
+            def _sum(x, y):
+                return (min(x), max(x), sum(y))
+            src = [(i, i*hits_hist.get(i, 0)) for i in range(max(hits_hist)+1)]
+            slen = len(src)
+            fact = int(math.ceil(slen / maxlen))
+            nlen = int(math.ceil(slen / fact))
+            for step in range(nlen):
+                bgn = step*fact
+                idx = [bgn + i for i in range(fact) if (bgn + i) < slen]
+                yield _sum(*map(list, zip(*[src[i] for i in idx])))
+
+        if hits_hist:
+            hist_hits = _reduced(25)
+            m = 100 #max(t[1] for t in hits_hist)
+            for hmin, hmax, tcount in hist_hits:
+                x.append("%d-%d" % (hmin, hmax) if hmin < hmax else "%d" % hmin)
+                y.append(tcount)
+                c.append(self._blend(lc, rc, float(hmax) / m if m > 0 else 0))
+
+        spl.set_ylabel("total number of hits")
+        spl.set_xlabel("number of hits")
+        spl.grid(which="major", axis="y", alpha=0.2)
+        spl.bar(x, y, color=c)
+
+        output = io.BytesIO()
+        plt.savefig(
+            output,
+            transparent=True,
+            format=imgfmt
+        )
+        fig.clear()
+        plt.close(fig)
+        output.seek(0)
+
+        return output
+
+    # --------------------------------------------------------------------------
     def hits_histogram_img(self, imgfmt="svg"):
 
         fig, spl = plt.subplots()
         plt.style.use('dark_background')
         fig.set_size_inches(5, 5)
+        spl.set_yscale("log")
+        spl.yaxis.set_major_formatter(pltckr.ScalarFormatter())
         spl.xaxis.set_minor_locator(pltckr.NullLocator())
         spl.xaxis.set_major_locator(pltckr.MaxNLocator(integer=True, min_n_ticks=1))
 
@@ -584,51 +641,13 @@ class ClangTidyCache(object):
 
         return output
 
-    def total_hits_histogram_img(self, imgfmt="svg"):
-
-        fig, spl = plt.subplots()
-        plt.style.use('dark_background')
-        fig.set_size_inches(5, 5)
-        spl.xaxis.set_minor_locator(pltckr.NullLocator())
-        spl.xaxis.set_major_locator(pltckr.MaxNLocator(integer=True, min_n_ticks=1))
-
-        hits_hist = self.hit_count_histogram()
-        lc = (1.0, 0.3, 0.1)
-        rc = (0.3, 1.0, 0.1)
-        x = []
-        y = []
-        c = []
-
-        if hits_hist:
-            m = max(hits_hist)
-            for hits, count in hits_hist.items():
-                x.append(hits)
-                y.append(hits * count)
-                c.append(self._blend(lc, rc, float(hits-1) / m if m > 0 else 0))
-
-        spl.set_ylabel("total number of hits")
-        spl.set_xlabel("number of hits")
-        spl.grid(which="major", axis="y", alpha=0.2)
-        spl.bar(x, y, color=c)
-
-        output = io.BytesIO()
-        plt.savefig(
-            output,
-            transparent=True,
-            format=imgfmt
-        )
-        fig.clear()
-        plt.close(fig)
-        output.seek(0)
-
-        return output
-
     # --------------------------------------------------------------------------
     def days_histogram_img(self, imgfmt="svg"):
 
         fig, spl = plt.subplots()
         plt.style.use('dark_background')
         fig.set_size_inches(5, 5)
+        spl.yaxis.set_major_formatter(pltckr.ScalarFormatter())
         spl.xaxis.set_minor_locator(pltckr.NullLocator())
         spl.xaxis.set_major_locator(pltckr.MaxNLocator(integer=True, min_n_ticks=1))
 
