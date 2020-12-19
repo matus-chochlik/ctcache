@@ -34,10 +34,10 @@
 .charts {
     display: grid;
     grid-area: charts;
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: repeat(3, 1fr);
 }
 
 .chart {
-    width: 49vw;
+    width: 33vw;
     height: 70vh;
 } 

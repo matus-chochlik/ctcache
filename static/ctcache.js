@@ -45,6 +45,8 @@ doReload = function() {
     if (isActive || hitsReloadCount >= 100) {
         $('#hits_histogram')
             .attr('src', '/image/hits_histogram.svg?' + new Date().getTime())
+        $('#total_hits_histogram')
+            .attr('src', '/image/total_hits_histogram.svg?' + new Date().getTime())
         hitsReloadCount = 0;
     }
 

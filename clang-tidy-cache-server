@@ -549,7 +549,7 @@ class ClangTidyCache(object):
 
         fig, spl = plt.subplots()
         plt.style.use('dark_background')
-        fig.set_size_inches(8, 5)
+        fig.set_size_inches(5, 5)
         spl.xaxis.set_minor_locator(pltckr.NullLocator())
         spl.xaxis.set_major_locator(pltckr.MaxNLocator(integer=True, min_n_ticks=1))
 
@@ -584,12 +584,51 @@ class ClangTidyCache(object):
 
         return output
 
+    def total_hits_histogram_img(self, imgfmt="svg"):
+
+        fig, spl = plt.subplots()
+        plt.style.use('dark_background')
+        fig.set_size_inches(5, 5)
+        spl.xaxis.set_minor_locator(pltckr.NullLocator())
+        spl.xaxis.set_major_locator(pltckr.MaxNLocator(integer=True, min_n_ticks=1))
+
+        hits_hist = self.hit_count_histogram()
+        lc = (1.0, 0.3, 0.1)
+        rc = (0.3, 1.0, 0.1)
+        x = []
+        y = []
+        c = []
+
+        if hits_hist:
+            m = max(hits_hist)
+            for hits, count in hits_hist.items():
+                x.append(hits)
+                y.append(hits * count)
+                c.append(self._blend(lc, rc, float(hits-1) / m if m > 0 else 0))
+
+        spl.set_ylabel("total number of hits")
+        spl.set_xlabel("number of hits")
+        spl.grid(which="major", axis="y", alpha=0.2)
+        spl.bar(x, y, color=c)
+
+        output = io.BytesIO()
+        plt.savefig(
+            output,
+            transparent=True,
+            format=imgfmt
+        )
+        fig.clear()
+        plt.close(fig)
+        output.seek(0)
+
+        return output
+
     # --------------------------------------------------------------------------
     def days_histogram_img(self, imgfmt="svg"):
 
         fig, spl = plt.subplots()
         plt.style.use('dark_background')
-        fig.set_size_inches(8, 5)
+        fig.set_size_inches(5, 5)
         spl.xaxis.set_minor_locator(pltckr.NullLocator())
         spl.xaxis.set_major_locator(pltckr.MaxNLocator(integer=True, min_n_ticks=1))
 
@@ -717,6 +756,16 @@ def ctc_image_hits_histogram():
     try:
         return flask.send_file(
             clang_tidy_cache.hits_histogram_img(),
+            mimetype="image/svg+xml"
+        )
+    except Exception as error:
+        return str(error)
+# ------------------------------------------------------------------------------
+@ctcache_app.route("/image/total_hits_histogram.svg")
+def ctc_image_total_hits_histogram():
+    try:
+        return flask.send_file(
+            clang_tidy_cache.total_hits_histogram_img(),
             mimetype="image/svg+xml"
         )
     except Exception as error:
