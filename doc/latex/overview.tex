@@ -12,4 +12,157 @@
   \centering{Introduction}
 \end{frame}
 % ------------------------------------------------------------------------------
+\begin{frame}
+  \frametitle{\cmdname{clang-tidy}}
+  \begin{itemize}
+      \item{\LARGE{\say{a \cmdname{clang}-based C++ static analysis
+          tool\footnote{\url{https://clang.llvm.org/extra/clang-tidy/}}}}}
+      \begin{itemize}
+      \item{an extensible framework for diagnosing and fixing typical
+          programming errors,}
+      \item{has a comprehensive suite of built-in checks, for}
+        \begin{itemize}
+        \item{style violations,}
+        \item{language misuse,}
+        \item{anti-patterns,}
+        \item{common bugs,}
+        \item{etc.}
+        \end{itemize}
+      \item{provides a convenient interface for writing new checks,}
+      \item{is configurable, with a large set of options.}
+      \end{itemize}
+  \end{itemize}
+\end{frame}
+% ------------------------------------------------------------------------------
+\begin{frame}
+    \frametitle{Using \cmdname{clang-tidy} with \cmdname{cmake}}
+    \Large
+    \begin{itemize}
+    \item \cmdname{cmake} has some built-in support for \cmdname{clang-tidy}:
+        \large
+        \begin{itemize}
+        \item the \inlinecode{CXX\_CLANG\_TIDY} target property\footnote{
+                \url{https://cmake.org/cmake/help/latest/manual/cmake-properties.7.html}}.
+        \item the generated build system code includes instructions to run
+            \cmdname{clang-tidy}, typically chained with the compilation
+                commands.
+        \end{itemize}
+    \end{itemize}
+\end{frame}
+% ------------------------------------------------------------------------------
+\begin{frame}[fragile]
+  \Large
+  Find the \cmdname{clang-tidy} command:
+  \begin{lstlisting}[language=cmake]
+  find_program(
+    CLANG_TIDY_COMMAND
+    clang-tidy
+  )
+  \end{lstlisting}
+
+  Add executable;
+  \begin{lstlisting}[language=cmake]
+  add_executable(my_target my_target.cpp)
+  \end{lstlisting}
+
+  or library target:
+  \begin{lstlisting}[language=cmake]
+  add_library(my_target my_target.cpp)
+  \end{lstlisting}
+\end{frame}
+% ------------------------------------------------------------------------------
+\begin{frame}[fragile]
+  \Large
+  If \cmdname{clang-tidy} was found, tell \cmdname{cmake} to check the sources
+  as a part of compilation:
+  \begin{lstlisting}[language=cmake]
+  if(CLANG_TIDY_COMMAND)
+    set_target_properties(
+      my_target PROPERTIES
+      (*@\listinghl{CXX\_CLANG\_TIDY \$\{CLANG\_TIDY\_COMMAND\}}@*)
+    )
+  endif()
+  \end{lstlisting}
+\end{frame}
+% - Motivation -----------------------------------------------------------------
+\section{Motivation}
+% ------------------------------------------------------------------------------
+\begin{frame}
+  \frametitle{The downsides of using \cmdname{clang-tidy}}
+    \Large
+    \begin{itemize}
+    \item Running static analysis takes time, {\larger a lot} of time.
+        \begin{itemize}
+        \item Often more time than the actual compilation.
+        \item Unacceptable increase in build times.
+        \item Switching static analysis on/off:
+            \begin{itemize}
+            \item Not ideal.
+            \item When do we flip the switch?
+            \item Typically ends up always off.
+            \end{itemize}
+        \end{itemize}
+    \end{itemize}
+\end{frame}
+% ------------------------------------------------------------------------------
+\begin{frame}[fragile]
+  \frametitle{Switching \cmdname{clang-tidy} checks on/off with \cmdname{cmake}}
+  \Large
+   Add a \cmdname{cmake} option:
+  \begin{lstlisting}[language=cmake]
+  option(
+    (*@\listinghl{WITH\_STATIC\_ANALYSIS}@*)
+    "Enable static analysis" ON
+  )
+  \end{lstlisting}
+
+  Add analysis-related target properties only when switched on:
+
+  \begin{lstlisting}[language=cmake]
+  if((*@\listinghl{WITH\_STATIC\_ANALYSIS}@*) and CLANG_TIDY_COMMAND)
+    set_target_properties(
+      my_target PROPERTIES
+      CXX_CLANG_TIDY ${CLANG_TIDY_COMMAND}
+    )
+  endif()
+  \end{lstlisting}
+
+\end{frame}
+% ------------------------------------------------------------------------------
+\begin{frame}
+  \frametitle{The reason for build slowdowns}
+    \Large
+    \begin{itemize}
+    \item Typically most of the code that is analysed doesn't change.
+        \begin{itemize}
+        \item It is re-checked with the same result over and over.
+        \item Unless you change something in the core sources included
+            everywhere.
+        \end{itemize}
+    \end{itemize}
+\end{frame}
+% - Solution -------------------------------------------------------------------
+\section{Solution}
+% ------------------------------------------------------------------------------
+\begin{frame}
+  \frametitle{The soluton -- analysis result caching}
+    \Large
+    \begin{itemize}
+    \item If we can uniquelly identify a static-analysis tool invocation
+        we can store the result and retrieve it when the same invocation
+        is repeated.
+        \begin{itemize}
+        \item Similar to compilation-caching\footnote{
+            \url{https://ccache.dev/}}.
+        \item Track all inputs of the analysis:
+            \begin{itemize}
+            \item configuration options,
+            \item command-line arguments,
+            \item the source files,
+            \item etc.
+            \end{itemize}
+        \end{itemize}
+    \end{itemize}
+\end{frame}
+% ------------------------------------------------------------------------------
 \end{document}
