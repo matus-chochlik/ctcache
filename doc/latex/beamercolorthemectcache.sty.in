@@ -1,0 +1,41 @@
+\mode<presentation>
+
+\definecolor{ctcachemajor}{RGB}{254,168,64}
+\definecolor{ctcacheminor}{RGB}{38,16,2}
+\definecolor{ctcachepage}{RGB}{28,24,20}
+\definecolor{ctcachetext}{RGB}{255, 250, 245}
+\definecolor{ctcachelisting}{RGB}{45,40,35}
+\definecolor{ctcachekeyword}{RGB}{192, 128, 32}
+\definecolor{ctcachecomment}{RGB}{192, 192, 203}
+
+\setbeamercolor{structure}{fg=ctcacheminor}
+\setbeamercolor{background canvas}{bg=ctcachepage}
+\setbeamercolor{normal text}{fg=ctcachetext}
+
+\setbeamercolor{palette primary}{fg=ctcacheminor,bg=ctcachemajor!70}
+\setbeamercolor{palette secondary}{fg=ctcacheminor,bg=ctcachemajor!75}
+\setbeamercolor{palette tertiary}{fg=ctcacheminor,bg=ctcachemajor!80}
+\setbeamercolor{palette quaternary}{fg=ctcacheminor,bg=ctcachemajor!90}
+
+\setbeamercolor{titlelike}{parent=palette quaternary}
+
+\setbeamercolor{block title}{fg=ctcacheminor,bg=ctcachemajor}
+\setbeamercolor{block title alerted}{use=alerted text,fg=ctcacheminor,bg=alerted text.fg!75!bg}
+\setbeamercolor{block title example}{use=example text,fg=ctcacheminor,bg=example text.fg!75!bg}
+
+\setbeamercolor{block body}{parent=normal text,use=block title,bg=block title.bg!25!bg}
+\setbeamercolor{block body alerted}{parent=normal text,use=block title alerted,bg=block title alerted.bg!25!bg}
+\setbeamercolor{block body example}{parent=normal text,use=block title example,bg=block title example.bg!25!bg}
+
+\setbeamercolor{sidebar}{bg=ctcachemajor!70}
+  
+\setbeamercolor{palette sidebar primary}{fg=ctcacheminor}
+\setbeamercolor{palette sidebar secondary}{fg=ctcacheminor!75}
+\setbeamercolor{palette sidebar tertiary}{fg=ctcacheminor!75}
+\setbeamercolor{palette sidebar quaternary}{fg=ctcacheminor}
+
+\setbeamercolor*{separation line}{}
+\setbeamercolor*{fine separation line}{}
+
+\mode
+<all>

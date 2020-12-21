@@ -1,0 +1,70 @@
+\usetheme{Montpellier}
+
+\hypersetup{pdfstartview={Fit}}
+
+\usecolortheme{ctcache}
+\useoutertheme{smoothbars}
+
+\setbeamertemplate{bibliography item}[text]
+\addtobeamertemplate{frametitle}{}{\vspace{-1em}}
+
+\usepackage[utf8]{inputenc}
+\usepackage{url}
+\usepackage{relsize}
+\usepackage{gensymb}
+\usepackage{mathtools}
+\usepackage{caption}
+\usepackage{enumitem}
+\usepackage{dirtytalk}
+\usepackage{multirow}
+\usepackage{graphicx}
+\usepackage{seqsplit}
+
+\newcommand{\fitfig}[1]{%
+  \makebox[\linewidth][c]{%
+    \begin{minipage}{\dimexpr\textwidth+1.2in\relax}
+    \includegraphics[
+        width=\textwidth,
+        height=\textheight,
+        keepaspectratio
+    ]{$<TARGET_PROPERTY:latex-doc,BINARY_DIR>/#1}
+    \end{minipage}%
+  }%
+}
+
+\newcommand{\cmdname}[1]{\texttt{\larger{#1}}}
+\newcommand{\inlinecode}[1]{\texttt{\color{ctcachetext}\colorbox{ctcachelisting}{#1}}}
+\newcommand{\listinghl}[1]{\em \texttt \bfseries \larger {\color{ctcachemajor}{#1}}}
+
+\usepackage{listings}
+\lstdefinestyle{ctcachecode}{
+    basicstyle=\normalsize\ttfamily,
+    backgroundcolor = \color{ctcachelisting},
+    breaklines=true,
+	prebreak=\textbackslash,
+    showstringspaces=false,
+    commentstyle=\itshape\color{ctcachecomment},
+    keywordstyle=\itshape\bfseries\color{ctcachekeyword},
+    tabsize=2,
+    escapeinside={(*@}{@*)}
+}
+\lstdefinelanguage{cmake}{
+    alsodigit = {-},
+    keywords = {
+        and, or, not,
+        set, option,
+        add_executable,
+        add_library,
+        find_program,
+        set_target_properties,
+        if,endif,
+        PROPERTIES
+   }
+}
+\lstset{style=ctcachecode}
+
+
+\setlist[itemize,1]{label=$\bullet$}
+\setlist[itemize,2]{label=$\bullet$}
+\setlist[itemize,3]{label=$\bullet$}
+
