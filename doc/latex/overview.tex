@@ -36,10 +36,10 @@
 % ------------------------------------------------------------------------------
 \begin{frame}
     \frametitle{Using \cmdname{clang-tidy} with \cmdname{cmake}}
-    \Large
+    \LARGE
     \begin{itemize}
     \item \cmdname{cmake} has some built-in support for \cmdname{clang-tidy}:
-        \large
+        \Large
         \begin{itemize}
         \item the \inlinecode{CXX\_CLANG\_TIDY} target property\footnote{
                 \url{https://cmake.org/cmake/help/latest/manual/cmake-properties.7.html}}.
@@ -89,9 +89,10 @@
 % ------------------------------------------------------------------------------
 \begin{frame}
   \frametitle{The downsides of using \cmdname{clang-tidy}}
-    \Large
+    \LARGE
     \begin{itemize}
     \item Running static analysis takes time, {\larger a lot} of time.
+        \Large
         \begin{itemize}
         \item Often more time than the actual compilation.
         \item Unacceptable increase in build times.
@@ -131,10 +132,11 @@
 % ------------------------------------------------------------------------------
 \begin{frame}
   \frametitle{The reason for build slowdowns}
-    \Large
+    \LARGE
     \begin{itemize}
     \item Typically most of the code that is analysed doesn't change.
         \begin{itemize}
+        \Large
         \item It is re-checked with the same result over and over.
         \item Unless you change something in the core sources included
             everywhere.
@@ -145,10 +147,10 @@
 \section{Solution}
 % ------------------------------------------------------------------------------
 \begin{frame}
-  \frametitle{The soluton -- analysis result caching}
+  \frametitle{The solution -- analysis result caching}
     \Large
     \begin{itemize}
-    \item If we can uniquelly identify a static-analysis tool invocation
+    \item If we can uniquely identify a static-analysis tool invocation
         we can store the result and retrieve it when the same invocation
         is repeated.
         \begin{itemize}
@@ -156,10 +158,100 @@
             \url{https://ccache.dev/}}.
         \item Track all inputs of the analysis:
             \begin{itemize}
+            \large
             \item configuration options,
             \item command-line arguments,
             \item the source files,
             \item etc.
+            \end{itemize}
+        \end{itemize}
+    \end{itemize}
+\end{frame}
+% ------------------------------------------------------------------------------
+\begin{frame}[fragile]
+  \frametitle{How is it used?}
+  \LARGE
+  Create a wrapper script, like:
+  \begin{lstlisting}[language=bash]
+  #!/bin/bash
+  REAL_CT=/full/path/to/clang-tidy
+
+  /path/to/clang-tidy-cache \
+    "${REAL_CT}" "${@}"
+  \end{lstlisting}
+  Put it into a directory in search \inlinecode{PATH}, before real
+  \cmdname{clang-tidy}.
+\end{frame}
+% ------------------------------------------------------------------------------
+\begin{frame}
+  \frametitle{How does it work?}
+    \LARGE
+    \begin{itemize}
+        \item Scans the command-line arguments of \cmdname{clang-tidy} and
+            its input:
+        \begin{itemize}
+            \Large
+            \item configuration files,
+            \item analysed source files.
+        \end{itemize}
+        \item Makes a hash uniquely identifying the invocation from
+            the above.
+    \end{itemize}
+\end{frame}
+% ------------------------------------------------------------------------------
+\begin{frame}
+  \frametitle{How does it work?}
+    \LARGE
+    \begin{itemize}
+        \item Checks if the hash is in the cache database:
+        \begin{itemize}
+            \Large
+            \item if it is -- don't run \cmdname{clang-tidy} and return
+                immediately -- typically {\larger much} faster.
+            \item otherwise -- run \cmdname{clang-tidy} and if successful
+                store the hash.
+        \end{itemize}
+    \end{itemize}
+\end{frame}
+% ------------------------------------------------------------------------------
+\begin{frame}
+  \frametitle{Modes of operation}
+    \Huge
+    \begin{itemize}
+        \item Local
+        \item Client / Server
+    \end{itemize}
+\end{frame}
+% ------------------------------------------------------------------------------
+\begin{frame}
+    \frametitle{Local mode}
+    \LARGE
+    \begin{itemize}
+        \item Stores the database in a local directory hierarchy.
+        \item Location determined by the \inlinecode{CTCACHE\_DIR} environment
+            variable.
+        \item By default a sub-tree in the temporary directory.
+        \item If you want persistence specify a directory in
+            a disk-based file system.
+    \end{itemize}
+\end{frame}
+% ------------------------------------------------------------------------------
+\begin{frame}
+    \frametitle{Client / server mode}
+    \LARGE
+    \begin{itemize}
+        \item \cmdname{clang-tidy-cache-server}
+        \begin{itemize}
+            \Large
+            \item HTTP server exposing a REST API.
+            \item Can be used to store and retrieve hashes from the client.
+            \item The client (\cmdname{clang-tide-cache}) can query
+                the server -- still way faster than running \cmdname{clang-tidy}.
+            \item Environment variables:
+            \begin{itemize}
+                \large
+                \item \inlinecode{CTCACHE\_HOST}
+                \item \inlinecode{CTCACHE\_PORT}
             \end{itemize}
         \end{itemize}
     \end{itemize}
