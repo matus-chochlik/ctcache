@@ -20,16 +20,21 @@
 \usepackage{graphicx}
 \usepackage{seqsplit}
 
-\newcommand{\fitfig}[1]{%
-  \makebox[\linewidth][c]{%
-    \begin{minipage}{\dimexpr\textwidth+1.2in\relax}
+\graphicspath{
+    {$<TARGET_PROPERTY:latex-doc,SOURCE_DIR>/../}
+    {$<TARGET_PROPERTY:latex-doc,SOURCE_DIR>/}
+}
+
+\newcommand{\fitfig}[1]{
+  \makebox[\linewidth][c]{
+    \begin{minipage}{\dimexpr\textwidth\relax}
     \includegraphics[
         width=\textwidth,
         height=\textheight,
         keepaspectratio
-    ]{$<TARGET_PROPERTY:latex-doc,BINARY_DIR>/#1}
-    \end{minipage}%
-  }%
+    ]{#1}
+    \end{minipage}
+  }
 }
 
 \newcommand{\cmdname}[1]{\texttt{\larger{#1}}}
