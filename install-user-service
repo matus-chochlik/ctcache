@@ -1,0 +1,10 @@
+#!/bin/bash
+mkdir -p ~/bin
+cp -u "$(dirname ${0})/clang-tidy-cache" ~/bin
+cp -u "$(dirname ${0})/clang-tidy-cache-server" ~/bin
+mkdir -p ~/.local/share/ctcache
+cp -r -u "$(dirname ${0})/static" ~/.local/share/ctcache
+mkdir -p ~/.config/ctcache
+cp -u "$(dirname ${0})/config/ctcache/systemd_env" ~/.config/ctcache
+mkdir -p ~/.config/systemd/user
+cp -r -u "$(dirname ${0})/systemd/ctcache.service" ~/.config/systemd/user
