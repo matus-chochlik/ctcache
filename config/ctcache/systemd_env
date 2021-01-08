@@ -1,1 +1,2 @@
+CTCACHE_WEBROOT=.local/share/ctcache
 CTCACHE_SERVICE_ARGS=

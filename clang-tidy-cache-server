@@ -155,6 +155,25 @@ def get_argument_parser():
         description="""server maintaining cached values for clang-tidy-cache"""
     )
 # ------------------------------------------------------------------------------
+class ClangTidyCacheApp(flask.Flask):
+    # --------------------------------------------------------------------------
+    @staticmethod
+    def get_static_folder():
+        return os.path.join(
+            os.path.realpath(
+                os.environ.get('CTCACHE_WEBROOT', os.path.dirname(__file__))
+            ),
+            'static'
+        )
+    # --------------------------------------------------------------------------
+    def __init__(self):
+        flask.Flask.__init__(self, "clang-tidy-cache")
+        self.config["STATIC_FOLDER"] = self.get_static_folder()
+
+# ------------------------------------------------------------------------------
+clang_tidy_cache = None
+ctcache_app = ClangTidyCacheApp()
+# ------------------------------------------------------------------------------
 class ClangTidyCache(object):
     # --------------------------------------------------------------------------
     def __init__(self, options):
@@ -172,6 +191,7 @@ class ClangTidyCache(object):
         self._chart_path = options.chart_path
         #
         self._info_getters = {
+            "static_path": self.static_path,
             "save_path": self.save_path
         }
         self._stat_getters = {
@@ -393,6 +413,10 @@ class ClangTidyCache(object):
     # --------------------------------------------------------------------------
     def save_path(self):
         return self._save_path
+
+    # --------------------------------------------------------------------------
+    def static_path(self):
+        return ctcache_app.get_static_folder()
 
     # --------------------------------------------------------------------------
     def cached_count(self):
@@ -683,25 +707,6 @@ class ClangTidyCache(object):
 
         return output
 
-# ------------------------------------------------------------------------------
-class ClangTidyCacheApp(flask.Flask):
-    # --------------------------------------------------------------------------
-    @staticmethod
-    def _get_static_folder():
-        return os.path.join(
-            os.path.realpath(
-                os.environ.get('CTCACHE_WEBROOT', os.path.dirname(__file__))
-            ),
-            'static'
-        )
-    # --------------------------------------------------------------------------
-    def __init__(self):
-        flask.Flask.__init__(self, "clang-tidy-cache")
-        self.config["STATIC_FOLDER"] = self._get_static_folder()
-
-# ------------------------------------------------------------------------------
-clang_tidy_cache = None
-ctcache_app = ClangTidyCacheApp()
 # ------------------------------------------------------------------------------
 @ctcache_app.route("/cache/<hashstr>")
 def ctc_cache(hashstr):
