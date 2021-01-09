@@ -14,7 +14,7 @@ EnvironmentFile=%h/.config/ctcache/systemd_env
 Type=simple
 WorkingDirectory=%h
 ExecStartPre=mkdir -p %h/.cache/ctcache-stats
-ExecStart=/usr/bin/python3 %h/bin/clang-tidy-cache-server $CTCACHE_SERVICE_ARGS
+ExecStart=/usr/bin/python3 %h/.local/bin/clang-tidy-cache-server $CTCACHE_SERVICE_ARGS
 Restart=always
 RestartSec=2
 
