@@ -290,4 +290,114 @@
   \end{itemize}
 \end{frame}
 % ------------------------------------------------------------------------------
+\begin{frame}[fragile]
+  \frametitle{Using \cmdname{systemd}}
+  \LARGE
+  Install as user service to home directory:
+  \begin{lstlisting}[language=bash]
+  cd path/to/ctcache_repo
+  ./install-user-service
+  \end{lstlisting}
+  Reload the user service files:
+  \begin{lstlisting}[language=bash]
+  systemctl --user daemon-reload
+  \end{lstlisting}
+\end{frame}
+% ------------------------------------------------------------------------------
+\begin{frame}[fragile]
+  \frametitle{Using \cmdname{systemd}}
+  \LARGE
+  Start the service:
+  \begin{lstlisting}[language=bash]
+  systemctl --user start ctcache.service
+  \end{lstlisting}
+  Stop the service:
+  \begin{lstlisting}[language=bash]
+  systemctl --user stop ctcache.service
+  \end{lstlisting}
+\end{frame}
+% ------------------------------------------------------------------------------
+\begin{frame}[fragile]
+  \frametitle{Using \cmdname{systemd}}
+  \LARGE
+  Enable automatic start of the service:
+  \begin{lstlisting}[language=bash]
+  systemctl --user enable ctcache.service
+  \end{lstlisting}
+  Disable automatic start of the service:
+  \begin{lstlisting}[language=bash]
+  systemctl --user disable ctcache.service
+  \end{lstlisting}
+\end{frame}
+% ------------------------------------------------------------------------------
+\begin{frame}[fragile]
+  \frametitle{Using \cmdname{docker}}
+  \LARGE
+  Build the image:
+  \begin{lstlisting}[language=bash]
+  docker build -t ctcache .
+  \end{lstlisting}
+  Basic usage:
+  \begin{lstlisting}[language=bash]
+  docker run \
+    -e CTCACHE_PORT=5000 \
+    -p "80:5000" \
+    -it --rm \
+    --name ctcache ctcache
+  \end{lstlisting}
+\end{frame}
+% ------------------------------------------------------------------------------
+\begin{frame}[fragile]
+  \frametitle{Make cache data persistent with \cmdname{docker} {\em volumes}}
+  \LARGE
+  Create the volume:
+  \begin{lstlisting}[language=bash]
+  docker volume create ctcache
+  \end{lstlisting}
+  Basic usage:
+  \begin{lstlisting}[language=bash]
+  docker run \
+    -e CTCACHE_PORT=5000 \
+    -p "80:5000" \
+    -v "ctcache:/var/lib/ctcache" \
+    -it --rm \
+    --name ctcache ctcache
+  \end{lstlisting}
+\end{frame}
+% ------------------------------------------------------------------------------
+\begin{frame}[fragile]
+  \frametitle{Using \cmdname{docker-compose}}
+  \LARGE
+  The \inlinecode{docker-compose.yaml} file:
+  \begin{lstlisting}
+  version: "3.6"
+  services:
+    ctcache:
+      build: .
+      ports:
+        - "5000:5000"
+      volumes:
+        - "ctcache:/var/lib/ctcache"
+  volumes:
+    ctcache:
+  \end{lstlisting}
+\end{frame}
+% ------------------------------------------------------------------------------
+\begin{frame}[fragile]
+  \frametitle{Using \cmdname{docker-compose}}
+  \Large
+  Start the service container using \cmdname{docker-compose}:
+  \begin{lstlisting}[language=bash]
+  docker-compose up
+  \end{lstlisting}
+  as a daemon:
+  \begin{lstlisting}[language=bash]
+  docker-compose up -d
+  \end{lstlisting}
+  Stop the running daemon and cleanup container:
+  \begin{lstlisting}[language=bash]
+  docker-compose down
+  \end{lstlisting}
+\end{frame}
+% ------------------------------------------------------------------------------
 \end{document}
