@@ -1,5 +1,10 @@
 #!/bin/bash
 #  Copyright (c) 2020-2021 Matus Chochlik
 #  clang-tidy cache wrapper script
+#
+if [[ ${CTCACHE_SKIP:-0} -ne 0 ]]
+then exit 0
+fi
+
 CTCACHE_CLANG_TIDY=/usr/bin/clang-tidy
 $(dirname ${0})/clang-tidy-cache "${CTCACHE_CLANG_TIDY}" "${@}"
