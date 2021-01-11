@@ -9,6 +9,7 @@
 \addtobeamertemplate{frametitle}{}{\vspace{-1em}}
 
 \usepackage[utf8]{inputenc}
+\usepackage[table]{xcolor}
 \usepackage{url}
 \usepackage{relsize}
 \usepackage{gensymb}
