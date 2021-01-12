@@ -257,6 +257,25 @@
     \end{itemize}
 \end{frame}
 % ------------------------------------------------------------------------------
+\begin{frame}[fragile]
+  \frametitle{Service -- Rest API}
+    \large
+    \begin{itemize}
+    \item \texttt{http://ctcache:5000/...}
+    \begin{itemize}
+    \normalsize
+    \item \texttt{/cache/<hash>} -- insert \texttt{<hash>} into cache.
+    \item \texttt{/is\_cached/<hash>} -- tests if \texttt{<hash>} is cached.
+    \item \texttt{/purge\_cache} -- remove all cached hashes.
+    \item \texttt{/info} -- static configuration information\footnote{JSON object}.
+    \item \texttt{/stats} -- server run-time status information\footnote{JSON object}.
+    \item \texttt{/stats/*} -- individual server status readouts\footnote{JSON values}.
+    \item \texttt{/stats/ctcache.json} -- long-term persisten server status information\footnote{JSON file}.
+    \item \texttt{/images/*} -- status chart images\footnote{SVG}.
+    \end{itemize}
+    \end{itemize}
+\end{frame}
+% ------------------------------------------------------------------------------
 \begin{frame}
   \frametitle{Server pages}
   \LARGE
@@ -291,22 +310,55 @@
 \end{frame}
 % ------------------------------------------------------------------------------
 \begin{frame}[fragile]
-  \frametitle{Using \cmdname{systemd}}
+  \frametitle{Using \cmdname{python3}}
+  \Large
+  If you want to try it out:
+  \begin{lstlisting}[language=bash]
+  python3 ./clang-tidy-cache-server 
+  \end{lstlisting}
+  Check command-line arguments:
+  \begin{lstlisting}[language=bash]
+  python3 ./clang-tidy-cache-server --help
+  \end{lstlisting}
+  \normalsize
+  \begin{verbatim}
+  usage: clang-tidy-cache-server
+    [-h] [--debug] [--port NUMBER]
+    [--save-path FILE-PATH.gz]
+    [--save-interval NUMBER]
+    [--stats-save-interval NUMBER]
+    [--cleanup-interval NUMBER]
+    [--stats-path DIR-PATH]
+    [--chart-path DIR-PATH]
+  \end{verbatim}
+\end{frame}
+% ------------------------------------------------------------------------------
+\begin{frame}[fragile]
+  \frametitle{Using \cmdname{systemd} -- installation}
   \LARGE
   Install as user service to home directory:
   \begin{lstlisting}[language=bash]
   cd path/to/ctcache_repo
   ./install-user-service
   \end{lstlisting}
-  Reload the user service files:
-  \begin{lstlisting}[language=bash]
-  systemctl --user daemon-reload
+  Installed files:
+  \begin{lstlisting}[language=bash,basicstyle=\footnotesize\ttfamily]
+  ~/.local/bin/clang-tidy # default wrapper script
+  ~/.local/bin/clang-tidy-cache
+  ~/.local/bin/clang-tidy-cache-server
+  ~/.local/share/ctcache/static/* # static web files
+  ~/.config/ctcache/systemd_env # systemd environment
+  ~/.config/systemd/user/ctcache.service
   \end{lstlisting}
 \end{frame}
 % ------------------------------------------------------------------------------
 \begin{frame}[fragile]
-  \frametitle{Using \cmdname{systemd}}
+  \frametitle{Using \cmdname{systemd} -- service start/stop}
   \LARGE
+  Reload the user service files:
+  \begin{lstlisting}[language=bash]
+  systemctl --user daemon-reload
+  \end{lstlisting}
   Start the service:
   \begin{lstlisting}[language=bash]
   systemctl --user start ctcache.service
@@ -320,11 +372,11 @@
 \begin{frame}[fragile]
   \frametitle{Using \cmdname{systemd}}
   \LARGE
-  Enable automatic start of the service:
+  Permanently enable automatic start of the service:
   \begin{lstlisting}[language=bash]
   systemctl --user enable ctcache.service
   \end{lstlisting}
-  Disable automatic start of the service:
+  Permanently disable automatic start of the service:
   \begin{lstlisting}[language=bash]
   systemctl --user disable ctcache.service
   \end{lstlisting}
@@ -420,6 +472,8 @@
   }
   \end{center}
 \end{frame}
+% - Results --------------------------------------------------------------------
+\section{Results}
 % - Questions ------------------------------------------------------------------
 \section{Questions}
 % ------------------------------------------------------------------------------
