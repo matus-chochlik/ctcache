@@ -5,9 +5,32 @@
 #
 
 find_program(PDFLATEX_COMMAND pdflatex)
+find_program(PYTHON3_COMMAND python3)
 
 add_custom_target(latex-doc)
 add_dependencies(doc latex-doc)
+
+macro(ctcache_generate_figure IMG_NAME GENERATOR SRC_DATA)
+    if(PDFLATEX_COMMAND)
+        if(PYTHON3_COMMAND)
+            add_custom_command(
+                OUTPUT ctcache-${IMG_NAME}.pdf
+                COMMAND "${PYTHON3_COMMAND}" "-B"
+                    "${CMAKE_CURRENT_SOURCE_DIR}/tools/${GENERATOR}.py"
+                    "-i" "${CMAKE_CURRENT_SOURCE_DIR}/data/${SRC_DATA}.json"
+                    "-o" "${IMG_NAME}.pdf"
+                WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}"
+                DEPENDS
+                    "${CMAKE_CURRENT_SOURCE_DIR}/tools/${GENERATOR}.py"
+                    "${CMAKE_CURRENT_SOURCE_DIR}/data/${SRC_DATA}.json"
+                COMMENT "Rendering ctcache-${IMG_NAME}.pdf"
+            )
+        endif()
+    endif()
+endmacro()
+
+ctcache_generate_figure(project1_build_times plot-build-time project1_build_times)
+ctcache_generate_figure(project2_build_times plot-build-time project2_build_times)
 
 file(GENERATE
     OUTPUT "beamercolorthemectcache.sty"
@@ -31,13 +54,20 @@ macro(ctcache_add_latex_presentation SRC_NAME)
             COMMENT "Copying ${SRC_NAME} LaTeX source"
         )
 
+        set(PRESENTATION_DEPENDS
+            "${CMAKE_CURRENT_BINARY_DIR}/beamercolorthemectcache.sty"
+            "${CMAKE_CURRENT_BINARY_DIR}/beamer_ctcache.tex"
+            "${CMAKE_CURRENT_BINARY_DIR}/${SRC_NAME}.tex"
+        )
+
         add_custom_target(
             ${SRC_NAME}-latex-sources
-            DEPENDS
-                "${CMAKE_CURRENT_BINARY_DIR}/beamercolorthemectcache.sty"
-                "${CMAKE_CURRENT_BINARY_DIR}/beamer_ctcache.tex"
-                "${CMAKE_CURRENT_BINARY_DIR}/${SRC_NAME}.tex"
+            DEPENDS ${PRESENTATION_DEPENDS}
         )
+
+        foreach(DEPNAME ${ARGN})
+            list(APPEND PRESENTATION_DEPENDS ctcache-${DEPNAME}.pdf)
+        endforeach()
 
         add_custom_command(
             OUTPUT ctcache-${SRC_NAME}.toc
@@ -50,9 +80,7 @@ macro(ctcache_add_latex_presentation SRC_NAME)
                 "${SRC_NAME}.tex"
             WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}"
             DEPENDS
-                "${CMAKE_CURRENT_BINARY_DIR}/beamercolorthemectcache.sty"
-                "${CMAKE_CURRENT_BINARY_DIR}/beamer_ctcache.tex"
-                "${CMAKE_CURRENT_BINARY_DIR}/${SRC_NAME}.tex"
+                ${PRESENTATION_DEPENDS}
                 ${SRC_NAME}-latex-sources
             COMMENT "Preparing ctcache-${SRC_NAME}.pdf"
         )
@@ -75,8 +103,12 @@ macro(ctcache_add_latex_presentation SRC_NAME)
             DEPENDS ctcache-${SRC_NAME}.pdf
         )
 
-    add_dependencies(latex-doc ctcache-${SRC_NAME}-pdf)
+        add_dependencies(latex-doc ctcache-${SRC_NAME}-pdf)
     endif()
 endmacro()
 
-ctcache_add_latex_presentation(overview)
+ctcache_add_latex_presentation(
+    overview
+    project1_build_times
+    project2_build_times
+)

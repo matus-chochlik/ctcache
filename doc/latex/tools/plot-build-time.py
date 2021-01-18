@@ -80,7 +80,6 @@ def do_plot(options):
     for o, (j, t) in zip(offs, times.items()):
         bins = [i+o for i in range(len(cfgs))]
         spl.bar(bins, t, width=0.25, tick_label=cfgs, label="-j %d" % j)
-    spl.set_xlabel(stats.project_name)
     spl.set_ylabel("Build time")
     spl.grid(axis="y")
     spl.legend()

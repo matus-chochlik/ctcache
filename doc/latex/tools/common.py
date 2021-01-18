@@ -107,7 +107,6 @@ class PresArgParser(argparse.ArgumentParser):
                 elif self.output_path:
                     plot.savefig(
                         self.output_path,
-                        papertype="a3",
                         orientation="landscape",
                         transparent=True,
                         format="pdf"
