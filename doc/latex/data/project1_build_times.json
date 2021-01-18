@@ -1,0 +1,42 @@
+{
+    "measurements": [
+        {
+            "ccache": false,
+            "ctcache": false,
+            "server": null,
+            "jobs": 1,
+            "time": 858.9
+        }, {
+            "ccache": false,
+            "ctcache": false,
+            "server": null,
+            "jobs": 4,
+            "time": 828.8
+        }, {
+            "ccache": true,
+            "ctcache": false,
+            "server": null,
+            "jobs": 1,
+            "time": 319.5
+        }, {
+            "ccache": true,
+            "ctcache": false,
+            "server": null,
+            "jobs": 4,
+            "time": 167.7
+        }, {
+            "ccache": true,
+            "ctcache": true,
+            "server": true,
+            "jobs": 1,
+            "time": 82.2
+        }, {
+            "ccache": true,
+            "ctcache": true,
+            "server": true,
+            "jobs": 4,
+            "time": 50.6
+        }
+    ],
+    "project_name": "Project 1"
+}
