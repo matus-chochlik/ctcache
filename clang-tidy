@@ -6,5 +6,9 @@ if [[ ${CTCACHE_SKIP:-0} -ne 0 ]]
 then exit 0
 fi
 
-CTCACHE_CLANG_TIDY=/usr/bin/clang-tidy
-$(dirname ${0})/clang-tidy-cache "${CTCACHE_CLANG_TIDY}" "${@}"
+CTCACHE_CLANG_TIDY="${CTCACHE_CLANG_TIDY:-/usr/bin/clang-tidy}"
+
+if [[ ${CTCACHE_DISABLE:-0} -ne 0 ]]
+then "${CTCACHE_CLANG_TIDY}" "${@}"
+else "$(dirname ${0})/clang-tidy-cache" "${CTCACHE_CLANG_TIDY}" "${@}"
+fi
