@@ -26,6 +26,13 @@ def make_argparser():
     return ArgParser(prog=os.path.basename(__file__))
 # ------------------------------------------------------------------------------
 def _format_time(s, pos=None):
+    if s >= 3600:
+        h = int(s/3600)
+        s -= h*3600
+        m = int(s/60)
+        s -= m*60
+        return "%2d:%02d:%02d" % (h, m, s)
+
     m = int(s/60)
     s -= m*60
     return "%2d:%02d" % (m, s)
@@ -40,7 +47,7 @@ def do_plot(options):
     }
     data = {}
     stats = DictObject.loadJson(options.input_path)
-
+    y_interval = 0.0
 
     for measured in stats.measurements:
         if measured.ctcache and measured.ctcache == False:
@@ -58,6 +65,13 @@ def do_plot(options):
             dkj = dk["jobs"] = {}
         
         dkj[measured.jobs] = measured.time
+        y_interval = max(y_interval, measured.time)
+
+    tick_opts = [5,10,15,30,60]
+    for t in tick_opts:
+        y_tick_maj = t*60
+        if y_interval / y_tick_maj < 12:
+            break
 
     plt.style.use('dark_background')
     fig, spl = plt.subplots()
@@ -76,6 +90,7 @@ def do_plot(options):
     offs = [width * i for i in range(len(times))]
     offs = [o - (max(offs) - min(offs))/2 for o in offs]
 
+    spl.yaxis.set_major_locator(pltckr.MultipleLocator(y_tick_maj))
     spl.yaxis.set_major_formatter(pltckr.FuncFormatter(_format_time))
     for o, (j, t) in zip(offs, times.items()):
         bins = [i+o for i in range(len(cfgs))]
