@@ -25,6 +25,18 @@
             "jobs": 4,
             "time": 167.7
         }, {
+            "ccache": false,
+            "ctcache": true,
+            "server": true,
+            "jobs": 1,
+            "time": 865
+        }, {
+            "ccache": false,
+            "ctcache": true,
+            "server": true,
+            "jobs": 4,
+            "time": 586
+        }, {
             "ccache": true,
             "ctcache": true,
             "server": true,
