@@ -31,6 +31,7 @@ endmacro()
 
 ctcache_generate_figure(project1_build_times plot-build-time project1_build_times)
 ctcache_generate_figure(project2_build_times plot-build-time project2_build_times)
+ctcache_generate_figure(project3_build_times plot-build-time project3_build_times)
 
 file(GENERATE
     OUTPUT "beamercolorthemectcache.sty"
@@ -111,4 +112,5 @@ ctcache_add_latex_presentation(
     overview
     project1_build_times
     project2_build_times
+    project3_build_times
 )

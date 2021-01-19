@@ -1,5 +1,9 @@
 \documentclass[compress,table,xcolor=table]{beamer}
 \input{beamer_ctcache.tex}
+\setlength{\paperwidth}{17.0cm}
+\setlength{\paperheight}{10.0cm}
+\setlength{\textwidth}{15.0cm}
+\setlength{\textheight}{9.0cm}
 \begin{document}
 % ------------------------------------------------------------------------------
 \title{Speeding up static analysis with \cmdname{clang-tidy-cache}}
@@ -88,6 +92,11 @@
 \section{Motivation}
 % ------------------------------------------------------------------------------
 \begin{frame}
+  \Huge
+  \centering{Motivation}
+\end{frame}
+% ------------------------------------------------------------------------------
+\begin{frame}
   \frametitle{The downsides of using \cmdname{clang-tidy}}
     \LARGE
     \begin{itemize}
@@ -145,6 +154,11 @@
 \end{frame}
 % - Solution -------------------------------------------------------------------
 \section{Solution}
+% ------------------------------------------------------------------------------
+\begin{frame}
+  \Huge
+  \centering{Solution}
+\end{frame}
 % ------------------------------------------------------------------------------
 \begin{frame}
   \frametitle{The solution -- analysis result caching}
@@ -295,6 +309,11 @@
 \end{frame}
 % - Deployment -----------------------------------------------------------------
 \section{Deployment}
+% ------------------------------------------------------------------------------
+\begin{frame}
+  \Huge
+  \centering{Deployment}
+\end{frame}
 % ------------------------------------------------------------------------------
 \begin{frame}
   \frametitle{Deploying the server}
@@ -461,6 +480,7 @@
   \hline
   variable & client & server & meaning \\
   \hline
+      \texttt{CTCACHE\_DISABLE} & \checkmark & & disables cache, always runs \inlinecode{clang-tidy}\\
       \texttt{CTCACHE\_SKIP} & \checkmark & & disables analysis, client returns immediately \\
       \texttt{CTCACHE\_STRIP} & \checkmark & & list of prefixes stripped from hashed paths \\
       \texttt{CTCACHE\_DIR} & \checkmark & & the cache directory in local mode \\
@@ -472,51 +492,153 @@
   }
   \end{center}
 \end{frame}
-% - Results --------------------------------------------------------------------
-\section{Results}
+% - Measurements ---------------------------------------------------------------
+\section{Measurements}
 % ------------------------------------------------------------------------------
-\begin{frame}[fragile]
+\begin{frame}
+  \Huge
+  \centering{Measurements}
+\end{frame}
+% ------------------------------------------------------------------------------
+\begin{frame}
   \frametitle{Test projects}
     \Large
     \begin{itemize}
-    \item Project 1 (proprietary C++ training examples)
+    \item Project 1:
     \begin{itemize}
     \large
+    \item proprietary C++ training examples,
     \item some are heavy template meta-programming,
-    \item $\approx{}6300$ LOC.
+    \item some code is not analyzed,
+    \item {\larger $\approx$ 6300 LOC}.
     \end{itemize}
-    \item Project 2 (open-source C++ wrapper for EGL, OpenGL, OpenAL, \ldots)
+    \item Project 2:
     \begin{itemize}
     \large
+    \item open-source C++ wrapper for EGL, OpenGL, OpenAL, \ldots,
     \item \url{https://github.com/matus-chochlik/oglplu2},
-    \item $\approx{}135k$ LOC.
+    \item {\larger $\approx$ 135k LOC}.
     \end{itemize}
-    \item Project 3 (proprietary, production code for embedded HW)
+    \item Project 3:
     \begin{itemize}
     \large
-    \item $\approx{}670k$ LOC.
+    \item proprietary, production code for embedded HW,
+    \item {\larger $\approx$ 750k LOC}.
     \end{itemize}
     \end{itemize}
 \end{frame}
 % ------------------------------------------------------------------------------
 \begin{frame}
-  \frametitle{Project 1 build times}
+  \frametitle{Test hardware setup}
+    \Large
+    \begin{itemize}
+    \item development laptop:
+    \begin{itemize}
+    \large
+    \item i5-7200U @ 2.50GHz (4 cores),
+    \item 16GB RAM,
+    \item 250GB SSD.
+    \end{itemize}
+    \item ctcache server:
+    \begin{itemize}
+    \large
+    \item RPi 3B,
+    \item BCM2837 64bit @ 1.20GHz (4 cores),
+    \item 1GB RAM,
+    \item 1TB USB HDD.
+    \end{itemize}
+    \item connected over WiFi (5GHz / $\approx$ 650Mbps\footnote{
+            according to \inlinecode{iwconfig}}).
+    \end{itemize}
+\end{frame}
+% ------------------------------------------------------------------------------
+\begin{frame}
+  \frametitle{Test configurations}
+    \large
+    \begin{itemize}
+    \item \say{compiler \& clang-tidy}
+    \begin{itemize}
+    \normalsize
+    \item \inlinecode{export CCACHE\_DISABLE=1}
+    \item \inlinecode{export CTCACHE\_DISABLE=1}
+    \end{itemize}
+    \item \say{ccache \& clang-tidy}
+    \begin{itemize}
+    \normalsize
+    \item \inlinecode{unset  CCACHE\_DISABLE}
+    \item \inlinecode{export CTCACHE\_DISABLE=1}
+    \end{itemize}
+    \item \say{compiler \& ctcache}
+    \begin{itemize}
+    \normalsize
+    \item \inlinecode{export CCACHE\_DISABLE=1}
+    \item \inlinecode{unset  CTCACHE\_DISABLE}
+    \end{itemize}
+    \item \say{ccache \& ctcache}
+    \begin{itemize}
+    \normalsize
+    \item \inlinecode{unset CCACHE\_DISABLE}
+    \item \inlinecode{unset CTCACHE\_DISABLE}
+    \end{itemize}
+    \end{itemize}
+\end{frame}
+% ------------------------------------------------------------------------------
+\begin{frame}
+  \frametitle{Test execution}
+    \large
+    \begin{itemize}
+    \item For each test project:
+    \begin{itemize}
+    \item \inlinecode{cd /path/to/build/dir}
+    \item \inlinecode{rm -rf ./}
+    \item \inlinecode{cmake ... /path/to/project/source}
+    \item do initial build with caches enabled (no measurements),
+    \item for each test configuration:
+    \begin{itemize}
+    \item setup environment variables,
+    \item \inlinecode{make clean}
+    \item \inlinecode{make -j N ...}
+    \end{itemize}
+    \end{itemize}
+    \end{itemize}
+\end{frame}
+% ------------------------------------------------------------------------------
+\begin{frame}
+  \frametitle{Project 1 -- build times}
   \fitfig{project1_build_times}
 \end{frame}
 % ------------------------------------------------------------------------------
 \begin{frame}
-  \frametitle{Project 2 build times}
+  \frametitle{Project 2 -- build times}
   \fitfig{project2_build_times}
 \end{frame}
-% - Questions ------------------------------------------------------------------
-\section{Questions}
+% ------------------------------------------------------------------------------
+\begin{frame}
+  \frametitle{Project 3 -- build times}
+  \fitfig{project3_build_times}
+\end{frame}
+% - Conclusion -----------------------------------------------------------------
+\section{Conclusions}
+% ------------------------------------------------------------------------------
+\begin{frame}
+  \frametitle{Conclusions}
+    \Large
+    \begin{itemize}
+    \item Having static analysis (almost) always on is useful during development.
+    \item Unnecessary delays from re-checking of unchanged code can be avoided
+        by caching.
+    \item Using \cmdname{clang-tidy-cache} (and \cmdname{ccache})
+        significantly improves build times for projects of various sizes.
+    \item The achieved speedups are in the range TODO.
+    \end{itemize}
+\end{frame}
 % ------------------------------------------------------------------------------
 \begin{frame}
   \centering
   \Huge
   Thank you!\\Questions?\\
   \vfill
-  \Large
+  \large
   \url{https://github.com/matus-chochlik/ctcache}/doc/latex/overview.pdf
 \end{frame}
 % - Extras ---------------------------------------------------------------------
