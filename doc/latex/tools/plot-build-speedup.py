@@ -20,82 +20,61 @@ class ArgParser(PresArgParser):
     def __init__(self, **kw):
         PresArgParser.__init__(self, **kw)
 
-        self._add_single_input_arg()
+        self._add_multi_input_arg()
 # ------------------------------------------------------------------------------
 def make_argparser():
     return ArgParser(prog=os.path.basename(__file__))
 # ------------------------------------------------------------------------------
-def _format_time(s, pos=None):
-    if s >= 3600:
-        h = int(s/3600)
-        s -= h*3600
-        m = int(s/60)
-        s -= m*60
-        return "%2d:%02d:%02d" % (h, m, s)
-
-    m = int(s/60)
-    s -= m*60
-    return "%2d:%02d" % (m, s)
+def _format_mult(s, pos=None):
+    return "%1.0fx" % s
 # ------------------------------------------------------------------------------
 def do_plot(options):
 
-    labels = {
-        0: "compiler\nclang-tidy",
-        1: "compiler\nctcache",
-        2: "ccache\nclang-tidy",
-        3: "ccache\nctcache"
-    }
     data = {}
-    stats = DictObject.loadJson(options.input_path)
-    y_interval = 0.0
 
-    for measured in stats.measurements:
-        if measured.ctcache and measured.ctcache == False:
-            continue
-        key = (2 if measured.ccache else 0) + (1 if measured.ctcache else 0)
+    for input_path in options.input_path:
+        stats = DictObject.loadJson(input_path)
         try:
-            dk = data[key]
+            d = data[stats.project_name]
         except KeyError:
-            dk = data[key] = {
-                "label": labels[key]
-            } 
-        try:
-            dkj = dk["jobs"]
-        except KeyError:
-            dkj = dk["jobs"] = {}
-        
-        dkj[measured.jobs] = measured.time
-        y_interval = max(y_interval, measured.time)
-
-    tick_opts = [5,10,15,30,60]
-    for t in tick_opts:
-        y_tick_maj = t*60
-        if y_interval / y_tick_maj < 12:
-            break
+            d = data[stats.project_name] = {}
+        for measured in stats.measurements:
+            try:
+                dj = d[measured.jobs]
+            except KeyError:
+                dj = d[measured.jobs] = {}
+            if measured.ccache and measured.ctcache:
+                dj["cached"] = measured.time
+            if not measured.ccache and not measured.ctcache:
+                dj["uncached"] = measured.time
 
     plt.style.use('dark_background')
     fig, spl = plt.subplots()
     options.initialize(plt, fig)
 
-    cfgs = []
-    times = {}
+    projects = []
+    speedups = {}
     for k, v in data.items():
-        cfgs.append(v["label"])
-        for j, t in v["jobs"].items():
+        projects.append(k)
+        for j, t in v.items():
             try:
-                times[j].append(t)
+                sj = speedups[j]
+            except KeyError:
+                sj = speedups[j] = []
+            try:
+                sj.append(t["uncached"]/t["cached"])
             except:
-                times[j] = [t]
-    width = 1.0 / (len(times)+1)
-    offs = [width * i for i in range(len(times))]
+                sj.append(0)
+
+    width = 1.0 / (len(speedups)+1)
+    offs = [width * i for i in range(len(speedups))]
     offs = [o - (max(offs) - min(offs))/2 for o in offs]
 
-    spl.yaxis.set_major_locator(pltckr.MultipleLocator(y_tick_maj))
-    spl.yaxis.set_major_formatter(pltckr.FuncFormatter(_format_time))
-    for o, (j, t) in zip(offs, times.items()):
-        bins = [i+o for i in range(len(cfgs))]
-        spl.bar(bins, t, width=width*0.8, tick_label=cfgs, label="-j %d" % j)
-    spl.set_ylabel("Build time")
+    spl.yaxis.set_major_formatter(pltckr.FuncFormatter(_format_mult))
+    for o, (j, s) in zip(offs, speedups.items()):
+        bins = [i+o for i in range(len(projects))]
+        spl.bar(bins, s, width=width*0.8, tick_label=projects, label="-j %d" % j)
+    spl.set_ylabel("Speedup")
     spl.grid(axis="y")
     spl.legend()
 
