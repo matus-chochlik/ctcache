@@ -10,5 +10,5 @@ CTCACHE_CLANG_TIDY="${CTCACHE_CLANG_TIDY:-/usr/bin/clang-tidy}"
 
 if [[ ${CTCACHE_DISABLE:-0} -ne 0 ]]
 then "${CTCACHE_CLANG_TIDY}" "${@}"
-else "$(dirname ${0})/clang-tidy-cache" "${CTCACHE_CLANG_TIDY}" "${@}"
+else "$(dirname $(realpath ${0}))/clang-tidy-cache" "${CTCACHE_CLANG_TIDY}" "${@}"
 fi
