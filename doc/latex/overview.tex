@@ -152,6 +152,15 @@
         \end{itemize}
     \end{itemize}
 \end{frame}
+% ------------------------------------------------------------------------------
+\begin{frame}
+  \frametitle{The goal}
+    \LARGE
+    \begin{itemize}
+    \item Have static analysis always on during development.
+    \item Don't wait for rechecking of unchanged code.
+    \end{itemize}
+\end{frame}
 % - Solution -------------------------------------------------------------------
 \section{Solution}
 % ------------------------------------------------------------------------------
@@ -204,16 +213,25 @@
 \end{frame}
 % ------------------------------------------------------------------------------
 \begin{frame}
-  \frametitle{How does it work (cont.) ?}
+  \frametitle{How does it work? (cont.)}
     \LARGE
     \begin{itemize}
         \item Checks if the hash is in the cache database:
         \begin{itemize}
             \Large
-            \item if it is -- don't run \cmdname{clang-tidy} and return
-                immediately -- typically {\larger much} faster.
-            \item otherwise -- run \cmdname{clang-tidy} and if successful
+            \item if it is
+            \begin{itemize}
+            \item don't run \cmdname{clang-tidy} and return immediately,
+            \item this is typically {\larger much} faster.
+            \end{itemize}
+            \item otherwise
+            \begin{itemize}
+            \item run \cmdname{clang-tidy} and if
+                successful\footnote{if there are no warnings or errors reported}
                 store the hash.
+            \item This means that {\larger sources with findings keep being
+                re-checked} and the findings are shown.
+            \end{itemize}
         \end{itemize}
     \end{itemize}
 \end{frame}
@@ -473,16 +491,16 @@
 % ------------------------------------------------------------------------------
 \begin{frame}[fragile]
   \frametitle{Environment variables}
-  \normalsize
+  \large
   \begin{center}
   {\rowcolors{2}{ctcachepage}{ctcachelisting}
-  \begin{tabular}{|p{3cm}|p{1cm}|p{1cm}|p{4cm}|}
+  \begin{tabular}{|p{3cm}|p{1cm}|p{1cm}|p{8cm}|}
   \hline
   variable & client & server & meaning \\
   \hline
       \texttt{CTCACHE\_DISABLE} & \checkmark & & disables cache, always runs \inlinecode{clang-tidy}\\
-      \texttt{CTCACHE\_SKIP} & \checkmark & & disables analysis, client returns immediately \\
-      \texttt{CTCACHE\_STRIP} & \checkmark & & list of prefixes stripped from hashed paths \\
+      \texttt{CTCACHE\_SKIP} & \checkmark & & disables analysis, client returns \say{OK} immediately \\
+      \texttt{CTCACHE\_STRIP} & \checkmark & & list of strings stripped from hashed inputs \\
       \texttt{CTCACHE\_DIR} & \checkmark & & the cache directory in local mode \\
       \texttt{CTCACHE\_HOST} & \checkmark & \checkmark & hostname or IP address of the server \\
       \texttt{CTCACHE\_PORT} & \checkmark & \checkmark & port number on which the server accepts connections \\
@@ -504,26 +522,26 @@
   \frametitle{Test projects}
     \Large
     \begin{itemize}
-    \item Project 1:
+    \item Project 1 (small):
     \begin{itemize}
     \large
     \item proprietary C++ training examples,
     \item some are heavy template meta-programming,
-    \item some code is not analyzed,
-    \item {\larger $\approx$ 6300 LOC}.
+    \item part of the code is not analyzed,
+    \item {\larger $\approx$ 6300 LOC}, {\em \larger tens} of build targets.
     \end{itemize}
-    \item Project 2:
+    \item Project 2 (medium):
     \begin{itemize}
     \large
     \item open-source C++ wrapper for EGL, OpenGL, OpenAL, \ldots,
     \item \url{https://github.com/matus-chochlik/oglplu2},
-    \item {\larger $\approx$ 135k LOC}.
+    \item {\larger $\approx$ 135k LOC}, {\em \larger hundreds} of build targets.
     \end{itemize}
-    \item Project 3:
+    \item Project 3 (large):
     \begin{itemize}
     \large
     \item proprietary, production code for embedded HW,
-    \item {\larger $\approx$ 750k LOC}.
+    \item {\larger $\approx$ 750k LOC}, {\em \larger thousands} of build targets.
     \end{itemize}
     \end{itemize}
 \end{frame}
@@ -585,7 +603,7 @@
 % ------------------------------------------------------------------------------
 \begin{frame}
   \frametitle{Test execution}
-    \large
+    \Large
     \begin{itemize}
     \item For each test project:
     \begin{itemize}
@@ -597,28 +615,33 @@
     \begin{itemize}
     \item setup environment variables,
     \item \inlinecode{make clean}
-    \item \inlinecode{make -j N ...}
+    \item \inlinecode{time make -j N ...}
     \end{itemize}
     \end{itemize}
     \end{itemize}
 \end{frame}
 % ------------------------------------------------------------------------------
 \begin{frame}
-  \frametitle{Project 1 -- build times}
+  \frametitle{Project 1 -- clean build times}
   \fitfig{project1_build_times}
 \end{frame}
 % ------------------------------------------------------------------------------
 \begin{frame}
-  \frametitle{Project 2 -- build times}
+  \frametitle{Project 2 -- clean build times}
   \fitfig{project2_build_times}
 \end{frame}
 % ------------------------------------------------------------------------------
 \begin{frame}
-  \frametitle{Project 3 -- build times}
+  \frametitle{Project 3 -- clean build times}
   \fitfig{project3_build_times}
 \end{frame}
+% ------------------------------------------------------------------------------
+\begin{frame}
+  \frametitle{Clean build speedups -- $t_{uncached} / t_{cached}$}
+  \fitfig{build_speedups}
+\end{frame}
 % - Conclusion -----------------------------------------------------------------
-\section{Conclusions}
+\section{Conclusion}
 % ------------------------------------------------------------------------------
 \begin{frame}
   \frametitle{Conclusions}
@@ -629,7 +652,33 @@
         by caching.
     \item Using \cmdname{clang-tidy-cache} (and \cmdname{ccache})
         significantly improves build times for projects of various sizes.
-    \item The achieved speedups are in the range TODO.
+    \item The achieved speedups\footnote{when using both \cmdname{ccache}
+        and \cmdname{ctcache}} are in the range of $\approx$ 5x -- 15x.
+    \end{itemize}
+\end{frame}
+% ------------------------------------------------------------------------------
+\begin{frame}
+  \frametitle{Overview}
+    \LARGE
+    \begin{itemize}
+    \item \cmdname{clang-tidy-cache} (client \& server)
+    \begin{itemize}
+    \item are reasonably simple to setup,
+    \item provide many configuration options,
+    \item provide several deployment options,
+    \item can be shared among multiple users,
+    \item can be integrated into CI pipelines\footnote{Jenkins, Travis, etc.},
+    \item work well together with \cmdname{ctcache}.
+    \end{itemize}
+    \end{itemize}
+\end{frame}
+% ------------------------------------------------------------------------------
+\begin{frame}
+  \frametitle{Possible future improvements}
+    \LARGE
+    \begin{itemize}
+    \item Support other command-line static analysis tools.
+    \item Support for {\em HTTPS} in the server.
     \end{itemize}
 \end{frame}
 % ------------------------------------------------------------------------------

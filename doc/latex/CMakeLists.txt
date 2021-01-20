@@ -10,28 +10,56 @@ find_program(PYTHON3_COMMAND python3)
 add_custom_target(latex-doc)
 add_dependencies(doc latex-doc)
 
-macro(ctcache_generate_figure IMG_NAME GENERATOR SRC_DATA)
+macro(ctcache_generate_figure IMG_NAME GENERATOR)
     if(PDFLATEX_COMMAND)
         if(PYTHON3_COMMAND)
+            set(FIG_DEPS)
+            set(GEN_ARGS)
+            foreach(SRC_DATA ${ARGN})
+                list(APPEND GEN_ARGS "-i")
+                list(APPEND GEN_ARGS "${CMAKE_CURRENT_SOURCE_DIR}/data/${SRC_DATA}.json")
+                list(APPEND FIG_DEPS "${CMAKE_CURRENT_SOURCE_DIR}/data/${SRC_DATA}.json")
+            endforeach()
+            list(APPEND GEN_ARGS "-o")
+            list(APPEND GEN_ARGS "${IMG_NAME}.pdf")
+            list(APPEND FIG_DEPS "${CMAKE_CURRENT_SOURCE_DIR}/tools/${GENERATOR}.py")
+
             add_custom_command(
                 OUTPUT ctcache-${IMG_NAME}.pdf
                 COMMAND "${PYTHON3_COMMAND}" "-B"
                     "${CMAKE_CURRENT_SOURCE_DIR}/tools/${GENERATOR}.py"
-                    "-i" "${CMAKE_CURRENT_SOURCE_DIR}/data/${SRC_DATA}.json"
-                    "-o" "${IMG_NAME}.pdf"
+                    ${GEN_ARGS}
                 WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}"
-                DEPENDS
-                    "${CMAKE_CURRENT_SOURCE_DIR}/tools/${GENERATOR}.py"
-                    "${CMAKE_CURRENT_SOURCE_DIR}/data/${SRC_DATA}.json"
+                DEPENDS ${FIG_DEPS}
                 COMMENT "Rendering ctcache-${IMG_NAME}.pdf"
             )
         endif()
     endif()
 endmacro()
 
-ctcache_generate_figure(project1_build_times plot-build-time project1_build_times)
-ctcache_generate_figure(project2_build_times plot-build-time project2_build_times)
-ctcache_generate_figure(project3_build_times plot-build-time project3_build_times)
+ctcache_generate_figure(
+    project1_build_times
+    plot-build-time
+    project1_build_times
+)
+ctcache_generate_figure(
+    project2_build_times
+    plot-build-time
+    project2_build_times
+)
+ctcache_generate_figure(
+    project3_build_times
+    plot-build-time
+    project3_build_times
+)
+
+ctcache_generate_figure(
+    build_speedups
+    plot-build-speedup
+    project1_build_times
+    project2_build_times
+    project3_build_times
+)
 
 file(GENERATE
     OUTPUT "beamercolorthemectcache.sty"
@@ -113,4 +141,5 @@ ctcache_add_latex_presentation(
     project1_build_times
     project2_build_times
     project3_build_times
+    build_speedups
 )

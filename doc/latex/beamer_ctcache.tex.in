@@ -20,6 +20,7 @@
 \usepackage{multirow}
 \usepackage{graphicx}
 \usepackage{seqsplit}
+\usepackage{ragged2e}
 
 \graphicspath{
     {$<TARGET_PROPERTY:latex-doc,SOURCE_DIR>/../}
@@ -74,3 +75,4 @@
 \setlist[itemize,2]{label=$\bullet$}
 \setlist[itemize,3]{label=$\bullet$}
 
+\let\raggedright=\RaggedRight
