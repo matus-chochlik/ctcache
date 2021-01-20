@@ -68,13 +68,19 @@ class ClangTidyCacheOpts(object):
 
     # --------------------------------------------------------------------------
     def adjust_chunk(self, x):
-        if os.path.exists(x):
-            x = os.path.realpath(x)
-        for item in self._strip_list:
-            x = x.replace(item, '')
-        x.strip()
-        if x:
-            return x.encode("utf8")
+        x = x.strip()
+        r = str().encode("utf8")
+        if not x.startswith("# "):
+            for w in x.split():
+                w = w.strip('"')
+                if os.path.exists(w):
+                    w = os.path.realpath(w)
+                for item in self._strip_list:
+                    w = w.replace(item, '')
+                w.strip()
+                if w:
+                    r += w.encode("utf8")
+        return r
 
     # --------------------------------------------------------------------------
     def rest_host(self):
