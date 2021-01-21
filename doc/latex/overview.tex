@@ -372,11 +372,16 @@
 % ------------------------------------------------------------------------------
 \begin{frame}[fragile]
   \frametitle{Using \cmdname{systemd} -- installation}
-  \LARGE
-  Install as user service to home directory:
+  \Large
+  Install server as user service to home directory:
   \begin{lstlisting}[language=bash]
   cd path/to/ctcache_repo
   ./install-user-service
+  \end{lstlisting}
+  BTW: install client to user's home directory:
+  \begin{lstlisting}[language=bash]
+  cd path/to/ctcache_repo
+  ./install-user-client
   \end{lstlisting}
   Installed files:
   \begin{lstlisting}[language=bash,basicstyle=\footnotesize\ttfamily]
@@ -489,15 +494,16 @@
   \end{lstlisting}
 \end{frame}
 % ------------------------------------------------------------------------------
-\begin{frame}[fragile]
+\begin{frame}
   \frametitle{Environment variables}
   \large
   \begin{center}
   {\rowcolors{2}{ctcachepage}{ctcachelisting}
-  \begin{tabular}{|p{3cm}|p{1cm}|p{1cm}|p{8cm}|}
+  \begin{tabular}{|p{4cm}|p{1cm}|p{1cm}|p{7cm}|}
   \hline
   variable & client & server & meaning \\
   \hline
+      \texttt{CTCACHE\_CLANG\_TIDY} & \checkmark & & path to the \inlinecode{clang-tidy} executable to be used\\
       \texttt{CTCACHE\_DISABLE} & \checkmark & & disables cache, always runs \inlinecode{clang-tidy}\\
       \texttt{CTCACHE\_SKIP} & \checkmark & & disables analysis, client returns \say{OK} immediately \\
       \texttt{CTCACHE\_STRIP} & \checkmark & & list of strings stripped from hashed inputs \\
@@ -526,7 +532,7 @@
     \begin{itemize}
     \large
     \item proprietary C++ training examples,
-    \item some are heavy template meta-programming,
+    \item some use {\LARGE heavy} template meta-programming,
     \item part of the code is not analyzed,
     \item {\larger $\approx$ 6300 LOC}, {\em \larger tens} of build targets.
     \end{itemize}
@@ -541,6 +547,7 @@
     \begin{itemize}
     \large
     \item proprietary, production code for embedded HW,
+    \item there are some unfixed findings -- some sources are re-checked,
     \item {\larger $\approx$ 750k LOC}, {\em \larger thousands} of build targets.
     \end{itemize}
     \end{itemize}
@@ -622,7 +629,7 @@
 \end{frame}
 % ------------------------------------------------------------------------------
 \begin{frame}
-  \frametitle{Project 1 -- clean build times}
+  \frametitle{Project 1 -- clean build times {\smaller (compilation caused some swapping on disk)}}
   \fitfig{project1_build_times}
 \end{frame}
 % ------------------------------------------------------------------------------
@@ -644,6 +651,11 @@
 \section{Conclusion}
 % ------------------------------------------------------------------------------
 \begin{frame}
+  \Huge
+  \centering{Conclusions}
+\end{frame}
+% ------------------------------------------------------------------------------
+\begin{frame}
   \frametitle{Conclusions}
     \Large
     \begin{itemize}
@@ -651,7 +663,8 @@
     \item Unnecessary delays from re-checking of unchanged code can be avoided
         by caching.
     \item Using \cmdname{clang-tidy-cache} (and \cmdname{ccache})
-        significantly improves build times for projects of various sizes.
+        significantly improves build times\footnote{especially clean rebuild
+            times} for projects of various sizes.
     \item The achieved speedups\footnote{when using both \cmdname{ccache}
         and \cmdname{ctcache}} are in the range of $\approx$ 5x -- 15x.
     \end{itemize}
@@ -674,11 +687,33 @@
 \end{frame}
 % ------------------------------------------------------------------------------
 \begin{frame}
+  \frametitle{Personal experience}
+    \Large
+    \begin{itemize}
+    \item Did development with \cmdname{clang-tidy} checks enabled on
+        \say{Project 2} and \say{Project 3} for more than a year.
+    \item This helps to find and fix many bugs early.
+    \item Also helps to enforce coding guidelines.
+    \item With \cmdname{clang-tidy-cache} the build times are kept
+        to very reasonable levels.
+    \item Build times increase only in rare cases when one of the \say{core}
+        headers are changed.
+    \end{itemize}
+\end{frame}
+% ------------------------------------------------------------------------------
+\begin{frame}
   \frametitle{Possible future improvements}
     \LARGE
     \begin{itemize}
     \item Support other command-line static analysis tools.
     \item Support for {\em HTTPS} in the server.
+    \item Request count over time statistics chart.
+    \item Additional command-line options in the client:
+    \begin{itemize}
+    \item Display server cache statistics on the command-line.
+    \item Reset server cache from the command-line.
+    \end{itemize}
+    \item \ldots
     \end{itemize}
 \end{frame}
 % ------------------------------------------------------------------------------
@@ -687,8 +722,61 @@
   \Huge
   Thank you!\\Questions?\\
   \vfill
+  \Large
+  \url{https://github.com/matus-chochlik/ctcache}\\
+  \vfill
   \large
   \url{https://github.com/matus-chochlik/ctcache}/doc/latex/overview.pdf
 \end{frame}
 % - Extras ---------------------------------------------------------------------
+\section{Extras}
+% ------------------------------------------------------------------------------
+\begin{frame}
+  \Huge
+  \centering{Extras}
+\end{frame}
+% ------------------------------------------------------------------------------
+\begin{frame}
+  \frametitle{Sharing cache server among multiple users}
+  \Large
+  \begin{itemize}
+  \item If multiple developers are building the same set of sources\footnote{
+      they are working on the same project},
+  \item and they have reasonably similar development environments\footnote{
+      same platform, same compiler, STL and library versions},
+  \item they have access to the same \cmdname{clang-tidy-cache-server} instance,
+  \item and they setup the \inlinecode{CTCACHE\_STRIP} variable properly,
+  \item they can share each others, cached static analysis results.
+  \end{itemize}
+\end{frame}
+% ------------------------------------------------------------------------------
+\begin{frame}
+  \frametitle{What prevents analysis result sharing}
+  \Large
+  \begin{itemize}
+  \item The cache works by hashing input strings -- command-line arguments,
+      pre-processed source file lines, configuration file lines, etc.
+  \item The goal is to get the {\larger same hash} for the {larger \say{same} check}.
+  \item Between users with similar environments, the analysis inputs typically
+      differ only in {\larger username-dependent} sub-strings\footnote{
+      i.e. paths in the \inlinecode{-L}, \inlinecode{-I}, etc. compiler options}.
+  \end{itemize}
+\end{frame}
+% ------------------------------------------------------------------------------
+\begin{frame}
+  \frametitle{The \inlinecode{CTCACHE\_STRIP} variable}
+  \Large
+  \begin{itemize}
+  \item \inlinecode{CTCACHE\_STRIP} -- List of colon-separated strings, which
+      are removed from the input strings.
+  \begin{itemize}
+  \item For example \inlinecode{CTCACHE\_STRIP="/home/user/myproject:/opt/custom/libs"}.
+  \end{itemize}
+  \item If the \say{right} strings are stripped by every user, same hashes are
+      generated.
+  \item {\larger May be somewhat tricky to setup properly.}
+  \item {\larger If set-up incorrectly may lead to false positives!}
+  \end{itemize}
+\end{frame}
+% ------------------------------------------------------------------------------
 \end{document}
