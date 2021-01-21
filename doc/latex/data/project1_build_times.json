@@ -10,6 +10,12 @@
             "ccache": false,
             "ctcache": false,
             "server": null,
+            "jobs": 2,
+            "time": 705
+        }, {
+            "ccache": false,
+            "ctcache": false,
+            "server": null,
             "jobs": 4,
             "time": 828.8
         }, {
@@ -18,6 +24,12 @@
             "server": null,
             "jobs": 1,
             "time": 319.5
+        }, {
+            "ccache": true,
+            "ctcache": false,
+            "server": null,
+            "jobs": 2,
+            "time": 163
         }, {
             "ccache": true,
             "ctcache": false,
@@ -34,6 +46,12 @@
             "ccache": false,
             "ctcache": true,
             "server": true,
+            "jobs": 2,
+            "time": 458
+        }, {
+            "ccache": false,
+            "ctcache": true,
+            "server": true,
             "jobs": 4,
             "time": 586
         }, {
@@ -42,6 +60,12 @@
             "server": true,
             "jobs": 1,
             "time": 82.2
+        }, {
+            "ccache": true,
+            "ctcache": true,
+            "server": true,
+            "jobs": 2,
+            "time": 67
         }, {
             "ccache": true,
             "ctcache": true,
