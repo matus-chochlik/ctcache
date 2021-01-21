@@ -82,6 +82,15 @@ class PresArgParser(argparse.ArgumentParser):
         )
 
         self.add_argument(
+            '-J', '--max-jobs',
+            metavar='COUNT',
+            dest='max_jobs',
+            nargs='?',
+            default=4,
+            type=self._positive_int
+        )
+
+        self.add_argument(
             '-o', '--output',
             metavar='OUTPUT-FILE',
             dest='output_path',
@@ -96,10 +105,21 @@ class PresArgParser(argparse.ArgumentParser):
             # ------------------------------------------------------------------
             def __init__(self, base):
                 self.__dict__.update(base.__dict__)
+                self.min_jobs = 1
             # ------------------------------------------------------------------
             def initialize(self, plot, fig):
                 if self.output_path:
                     fig.set_size_inches(8, 4.5)
+
+            # ------------------------------------------------------------------
+            def color_by_jobs(self, jobs):
+                lc = (1.0, 0.8, 0.1)
+                rc = (0.6, 0.8, 1.0)
+                f = (jobs - self.min_jobs) / (self.max_jobs - self.min_jobs)
+                return tuple(
+                    max(min(l * (1.0 - f) + r * f, 1), 0) for l, r in zip(lc, rc)
+                )
+
             # ------------------------------------------------------------------
             def finalize(self, plot):
                 if self.viewer:

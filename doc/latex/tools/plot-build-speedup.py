@@ -54,6 +54,7 @@ def do_plot(options):
 
     projects = []
     speedups = {}
+
     for k, v in data.items():
         projects.append(k)
         for j, t in v.items():
@@ -73,7 +74,13 @@ def do_plot(options):
     spl.yaxis.set_major_formatter(pltckr.FuncFormatter(_format_mult))
     for o, (j, s) in zip(offs, speedups.items()):
         bins = [i+o for i in range(len(projects))]
-        spl.bar(bins, s, width=width*0.8, tick_label=projects, label="-j %d" % j)
+        spl.bar(
+            bins, s,
+            width=width*0.8,
+            tick_label=projects,
+            label="-j %d" % j,
+            color=options.color_by_jobs(j)
+        )
     spl.set_ylabel("Speedup")
     spl.grid(axis="y")
     spl.legend()

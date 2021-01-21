@@ -94,7 +94,13 @@ def do_plot(options):
     spl.yaxis.set_major_formatter(pltckr.FuncFormatter(_format_time))
     for o, (j, t) in zip(offs, times.items()):
         bins = [i+o for i in range(len(cfgs))]
-        spl.bar(bins, t, width=width*0.8, tick_label=cfgs, label="-j %d" % j)
+        spl.bar(
+            bins, t,
+            width=width*0.8,
+            tick_label=cfgs,
+            label="-j %d" % j,
+            color=options.color_by_jobs(j)
+        )
     spl.set_ylabel("Build time")
     spl.grid(axis="y")
     spl.legend()
