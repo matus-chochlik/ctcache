@@ -448,7 +448,7 @@
   \begin{lstlisting}[language=bash]
   docker volume create ctcache
   \end{lstlisting}
-  Basic usage:
+  Start container using the volume:
   \begin{lstlisting}[language=bash]
   docker run \
     -e CTCACHE_PORT=5000 \
@@ -488,7 +488,7 @@
   \begin{lstlisting}[language=bash]
   docker-compose up -d
   \end{lstlisting}
-  Stop the running daemon and cleanup container:
+  Stop the running daemon and cleanup the container:
   \begin{lstlisting}[language=bash]
   docker-compose down
   \end{lstlisting}
@@ -679,9 +679,9 @@
     \item are reasonably simple to setup,
     \item provide many configuration options,
     \item provide several deployment options,
-    \item can be shared among multiple users,
+	\item can be shared among multiple users\footnote{see extras},
     \item can be integrated into CI pipelines\footnote{Jenkins, Travis, etc.},
-    \item work well together with \cmdname{ctcache}.
+    \item work well together with \cmdname{ccache}.
     \end{itemize}
     \end{itemize}
 \end{frame}
