@@ -74,5 +74,6 @@
 \setlist[itemize,1]{label=$\bullet$}
 \setlist[itemize,2]{label=$\bullet$}
 \setlist[itemize,3]{label=$\bullet$}
+\setlist[itemize,4]{label=$\bullet$}
 
 \let\raggedright=\RaggedRight

@@ -147,7 +147,7 @@
         \begin{itemize}
         \Large
         \item It is re-checked with the same result over and over.
-        \item Unless you change something in the core sources included
+        \item Unless you change something in the \say{core} sources included
             everywhere.
         \end{itemize}
     \end{itemize}
@@ -229,8 +229,11 @@
             \item run \cmdname{clang-tidy} and if
                 successful\footnote{if there are no warnings or errors reported}
                 store the hash.
+            \begin{itemize}
+            \large
             \item This means that {\larger sources with findings keep being
                 re-checked} and the findings are shown.
+            \end{itemize}
             \end{itemize}
         \end{itemize}
     \end{itemize}
@@ -299,11 +302,11 @@
     \item \texttt{/cache/<hash>} -- insert \texttt{<hash>} into cache.
     \item \texttt{/is\_cached/<hash>} -- tests if \texttt{<hash>} is cached.
     \item \texttt{/purge\_cache} -- remove all cached hashes.
-    \item \texttt{/info} -- static configuration information\footnote{JSON object}.
-    \item \texttt{/stats} -- server run-time status information\footnote{JSON object}.
-    \item \texttt{/stats/*} -- individual server status readouts\footnote{JSON values}.
-    \item \texttt{/stats/ctcache.json} -- long-term persisten server status information\footnote{JSON file}.
-    \item \texttt{/images/*} -- status chart images\footnote{SVG}.
+    \item \texttt{/info} -- static configuration information\footnote{as JSON object}.
+    \item \texttt{/stats} -- server run-time status information\footnote{as JSON object}.
+    \item \texttt{/stats/*} -- individual server status readouts\footnote{as JSON values}.
+    \item \texttt{/stats/ctcache.json} -- long-term persistent server status information\footnote{as JSON file}.
+    \item \texttt{/images/*} -- status chart images\footnote{as SVG}.
     \end{itemize}
     \end{itemize}
 \end{frame}
@@ -674,14 +677,14 @@
   \frametitle{Overview}
     \LARGE
     \begin{itemize}
-    \item \cmdname{clang-tidy-cache} (client \& server)
+    \item \cmdname{clang-tidy-cache} (client / server)
     \begin{itemize}
     \item are reasonably simple to setup,
     \item provide many configuration options,
     \item provide several deployment options,
-	\item can be shared among multiple users\footnote{see extras},
     \item can be integrated into CI pipelines\footnote{Jenkins, Travis, etc.},
-    \item work well together with \cmdname{ccache}.
+    \item work well together with \cmdname{ccache},
+	\item can be shared among multiple users\footnote{more in a moment}.
     \end{itemize}
     \end{itemize}
 \end{frame}
@@ -707,7 +710,7 @@
     \begin{itemize}
     \item Support other command-line static analysis tools.
     \item Support for {\em HTTPS} in the server.
-    \item Request count over time statistics chart.
+    \item Number of requests over time statistics chart.
     \item Additional command-line options in the client:
     \begin{itemize}
     \item Display server cache statistics on the command-line.
@@ -756,7 +759,7 @@
   \begin{itemize}
   \item The cache works by hashing input strings -- command-line arguments,
       pre-processed source file lines, configuration file lines, etc.
-  \item The goal is to get the {\larger same hash} for the {larger \say{same} check}.
+  \item The goal is to get the {\larger same hash} for the {\larger \say{same} check}.
   \item Between users with similar environments, the analysis inputs typically
       differ only in {\larger username-dependent} sub-strings\footnote{
       i.e. paths in the \inlinecode{-L}, \inlinecode{-I}, etc. compiler options}.
