@@ -41,8 +41,8 @@ def do_plot(options):
 
     labels = {
         0: "compiler\nclang-tidy",
-        1: "compiler\nctcache",
-        2: "ccache\nclang-tidy",
+        1: "ccache\nclang-tidy",
+        2: "compiler\nctcache",
         3: "ccache\nctcache"
     }
     data = {}
@@ -50,7 +50,7 @@ def do_plot(options):
 
     for input_path in options.input_path:
         measured = DictObject.loadJson(input_path)
-        key = (2 if measured.ccache else 0) + (1 if measured.ctcache else 0)
+        key = (1 if measured.ccache else 0) + (2 if measured.ctcache else 0)
         try:
             dk = data[key]
         except KeyError:
@@ -77,13 +77,18 @@ def do_plot(options):
     for k, dk in data.items():
         x = dk["age"]
         y = dk["load"]
-        spl.plot(x, y, label=dk["label"], linewidth=2)
+        spl.plot(
+            x, y,
+            label=dk["label"],
+            linewidth=2,
+            color=options.color_from_to(k, 0, 3)
+        )
  
     spl.xaxis.set_major_locator(pltckr.MultipleLocator(x_tick_maj))
     spl.xaxis.set_major_formatter(pltckr.FuncFormatter(_format_time))
     spl.set_xlabel("Build time")
     spl.set_ylabel("CPU load")
-    spl.grid(axis="both")
+    spl.grid(axis="both", alpha=0.25)
     spl.legend()
 
     options.finalize(plt)

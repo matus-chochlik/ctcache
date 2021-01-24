@@ -112,13 +112,17 @@ class PresArgParser(argparse.ArgumentParser):
                     fig.set_size_inches(8, 4.5)
 
             # ------------------------------------------------------------------
-            def color_by_jobs(self, jobs):
+            def color_from_to(self, i, mini, maxi):
                 lc = (1.0, 0.8, 0.1)
                 rc = (0.6, 0.8, 1.0)
-                f = (jobs - self.min_jobs) / (self.max_jobs - self.min_jobs)
+                f = (i - mini) / (maxi - mini)
                 return tuple(
                     max(min(l * (1.0 - f) + r * f, 1), 0) for l, r in zip(lc, rc)
                 )
+
+            # ------------------------------------------------------------------
+            def color_by_jobs(self, jobs):
+                return self.color_from_to(jobs, self.min_jobs, self.max_jobs)
 
             # ------------------------------------------------------------------
             def finalize(self, plot):

@@ -82,7 +82,7 @@ def do_plot(options):
             color=options.color_by_jobs(j)
         )
     spl.set_ylabel("Speedup")
-    spl.grid(axis="y")
+    spl.grid(axis="y", alpha=0.25)
     spl.legend()
 
     options.finalize(plt)

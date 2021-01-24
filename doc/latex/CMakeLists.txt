@@ -61,6 +61,15 @@ ctcache_generate_figure(
     project3_build_times
 )
 
+ctcache_generate_figure(
+    p3_j4_system_load
+    plot-system-load
+    p3_j4_cxx_ctd
+    p3_j4_cxc_ctd
+    p3_j4_cxx_ctc
+    p3_j4_cxc_ctc
+)
+
 file(GENERATE
     OUTPUT "beamercolorthemectcache.sty"
     INPUT "beamercolorthemectcache.sty.in"
@@ -142,4 +151,5 @@ ctcache_add_latex_presentation(
     project2_build_times
     project3_build_times
     build_speedups
+    p3_j4_system_load
 )

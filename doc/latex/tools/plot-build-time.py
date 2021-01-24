@@ -41,8 +41,8 @@ def do_plot(options):
 
     labels = {
         0: "compiler\nclang-tidy",
-        1: "compiler\nctcache",
-        2: "ccache\nclang-tidy",
+        1: "ccache\nclang-tidy",
+        2: "compiler\nctcache",
         3: "ccache\nctcache"
     }
     data = {}
@@ -52,7 +52,7 @@ def do_plot(options):
     for measured in stats.measurements:
         if measured.ctcache and measured.ctcache == False:
             continue
-        key = (2 if measured.ccache else 0) + (1 if measured.ctcache else 0)
+        key = (1 if measured.ccache else 0) + (2 if measured.ctcache else 0)
         try:
             dk = data[key]
         except KeyError:
@@ -102,7 +102,7 @@ def do_plot(options):
             color=options.color_by_jobs(j)
         )
     spl.set_ylabel("Build time")
-    spl.grid(axis="y")
+    spl.grid(axis="y", alpha=0.25)
     spl.legend()
 
     options.finalize(plt)
