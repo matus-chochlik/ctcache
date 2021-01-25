@@ -62,7 +62,7 @@ def do_plot(options):
         for row in measured.data:
             x_interval = max(x_interval, row.age)
             dk["age"].append(row.age)
-            dk["load"].append(row.cpu_load_15)
+            dk["load"].append(row.cpu_load_5)
 
     tick_opts = [5,10,15,30,60]
     for t in tick_opts:
