@@ -90,13 +90,21 @@ class ClangTidyCacheOpts(object):
     def rest_port(self):
         return int(os.getenv("CTCACHE_PORT", 5000))
 
+    # --------------------------------------------------------------------------
+    def dump_enabled(self):
+        return "CTCACHE_DUMP" in os.environ
+
 # ------------------------------------------------------------------------------
 class ClangTidyCacheHash(object):
     # --------------------------------------------------------------------------
-    def __init__(self):
+    def _opendump(self, opts):
+        return open(os.path.join(tempfile.gettempdir(), "ctcache.dump"), "ab")
+
+    # --------------------------------------------------------------------------
+    def __init__(self, opts):
         self._hash = hashlib.sha1()
-        # self._dump = open("/tmp/ctc.log", "w+")
-        self._dump = None
+        self._dump = self._opendump(opts) if opts.dump_enabled() else None
+        assert self._dump or not opts.dump_enabled()
 
     # --------------------------------------------------------------------------
     def __del__(self):
@@ -108,8 +116,7 @@ class ClangTidyCacheHash(object):
         if content:
             self._hash.update(content)
             if self._dump:
-                self._dump.write(content.decode("ascii"))
-                self._dump.write("\n")
+                self._dump.write(content)
 
     # --------------------------------------------------------------------------
     def hexdigest(self):
@@ -139,7 +146,7 @@ def hash_inputs(opts):
     if not co_args and not ct_args:
         return None
 
-    result = ClangTidyCacheHash()
+    result = ClangTidyCacheHash(opts)
 
     proc = subprocess.Popen(
         co_args,
