@@ -24,7 +24,7 @@
       \begin{itemize}
       \item{an extensible framework for diagnosing and fixing typical
           programming errors,}
-      \item{has a comprehensive suite of built-in checks, for}
+      \item{has a comprehensive suite of built-in checks for:}
         \begin{itemize}
         \item{style violations,}
         \item{language misuse,}
@@ -42,7 +42,7 @@
     \frametitle{Using \cmdname{clang-tidy} with \cmdname{cmake}}
     \LARGE
     \begin{itemize}
-    \item \cmdname{cmake} has some built-in support for \cmdname{clang-tidy}:
+    \item \cmdname{cmake} has built-in support for \cmdname{clang-tidy}:
         \Large
         \begin{itemize}
         \item the \inlinecode{CXX\_CLANG\_TIDY} target property\footnote{
@@ -56,7 +56,7 @@
 % ------------------------------------------------------------------------------
 \begin{frame}[fragile]
   \Large
-  Find the \cmdname{clang-tidy} command:
+  Find the \cmdname{clang-tidy} command / executable path:
   \begin{lstlisting}[language=cmake]
   find_program(
     CLANG_TIDY_COMMAND
@@ -105,6 +105,7 @@
         \begin{itemize}
         \item Often more time than the actual compilation.
         \item Unacceptable increase in build times.
+        \item Especially in CI pipelines doing full rebuilds.
         \item Switching static analysis on/off:
             \begin{itemize}
             \item Not ideal.
@@ -143,12 +144,14 @@
   \frametitle{The reason for build slowdowns}
     \LARGE
     \begin{itemize}
-    \item Typically most of the code that is analysed doesn't change.
+    \item Often most of the code that is analysed doesn't change.
         \begin{itemize}
         \Large
         \item It is re-checked with the same result over and over.
         \item Unless you change something in the \say{core} sources included
             everywhere.
+        \item Happens typically in CI pipelines, but occasionally also
+            on developers' machines.
         \end{itemize}
     \end{itemize}
 \end{frame}
@@ -200,12 +203,13 @@
   \frametitle{How does it work?}
     \LARGE
     \begin{itemize}
-        \item Scans the command-line arguments of \cmdname{clang-tidy} and
-            its input:
+        \item Scans the inputs of \cmdname{clang-tidy}:
         \begin{itemize}
             \Large
+            \item command-line arguments,
             \item configuration files,
-            \item analysed source files.
+            \item analysed source files\footnote{preprocessed by the C/C++
+                preprocessor}.
         \end{itemize}
         \item Makes a hash uniquely identifying the invocation from
             the above.
@@ -221,12 +225,12 @@
             \Large
             \item if it is
             \begin{itemize}
-            \item don't run \cmdname{clang-tidy} and return immediately,
+            \item doesn't run \cmdname{clang-tidy} and returns immediately,
             \item this is typically {\larger much} faster.
             \end{itemize}
             \item otherwise
             \begin{itemize}
-            \item run \cmdname{clang-tidy} and if
+            \item runs \cmdname{clang-tidy} and if
                 successful\footnote{if there are no warnings or errors reported}
                 store the hash.
             \begin{itemize}
@@ -251,7 +255,10 @@
     "${REAL_CT}" "${@}"
   \end{lstlisting}
   Put it into a directory in search \inlinecode{PATH}, before real
-  \cmdname{clang-tidy}.
+  \cmdname{clang-tidy}:
+  \begin{lstlisting}[language=bash]
+  export PATH="/path/to/wrapper-script-dir:${PATH}"
+  \end{lstlisting}
 \end{frame}
 % ------------------------------------------------------------------------------
 \begin{frame}
@@ -271,7 +278,7 @@
         \item Location determined by the \inlinecode{CTCACHE\_DIR} environment
             variable.
         \item By default a sub-tree in the temporary directory.
-        \item If you want persistence specify a directory in
+        \item If you want persistence, specify a directory in
             a disk-based file system.
     \end{itemize}
 \end{frame}
@@ -620,7 +627,8 @@
     \item \inlinecode{cd /path/to/build/dir}
     \item \inlinecode{rm -rf ./}
     \item \inlinecode{cmake ... /path/to/project/source}
-    \item do initial build with caches enabled (no measurements),
+    \item do initial build with caches enabled\footnote{to fill them}
+        (no measurements),
     \item for each test configuration:
     \begin{itemize}
     \item setup environment variables,
@@ -687,7 +695,7 @@
   \frametitle{Overview}
     \LARGE
     \begin{itemize}
-    \item \cmdname{clang-tidy-cache} (client / server)
+    \item \cmdname{clang-tidy-cache} (client and server)
     \begin{itemize}
     \item are reasonably simple to setup,
     \item provide many configuration options,
@@ -785,8 +793,8 @@
   \begin{itemize}
   \item For example \inlinecode{CTCACHE\_STRIP="/home/user/myproject:/opt/custom/libs"}.
   \end{itemize}
-  \item If the \say{right} strings are stripped by every user, same hashes are
-      generated.
+  \item If the \say{right} strings are stripped by every user $\rightarrow$
+      the same hashes are generated.
   \item {\larger May be somewhat tricky to setup properly.}
   \item {\larger If set-up incorrectly may lead to false positives!}
   \end{itemize}
