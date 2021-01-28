@@ -1,0 +1,8 @@
+Checks:          'clang-diagnostic-*,clang-analyzer-*,bugprone-*,-bugprone-branch-clone,-bugprone-macro-parentheses,-bugprone-exception-escape,cert-*,hicpp-*'
+WarningsAsErrors: '*'
+HeaderFilterRegex: '*'
+AnalyzeTemporaryDtors: false
+FormatStyle:     file
+CheckOptions:
+...
+
