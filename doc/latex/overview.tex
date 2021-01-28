@@ -88,6 +88,50 @@
   endif()
   \end{lstlisting}
 \end{frame}
+% ------------------------------------------------------------------------------
+\begin{frame}[fragile]
+  \Large
+    \cmdname{clang-tidy} is configured\footnote{
+        \url{https://clang.llvm.org/extra/clang-tidy/}} by creating
+    a file called \inlinecode{.clang-tidy}, typically in the project
+    root directory:
+  \vfill
+  \begin{lstlisting}[language=cmake,basicstyle=\footnotesize\ttfamily]
+  Checks:          'clang-diagnostic-*,clang-analyzer-*,bugprone-*,\
+                    -bugprone-branch-clone,-bugprone-macro-parentheses,\
+                    -bugprone-exception-escape,cert-*,hicpp-*'
+  WarningsAsErrors: '*'
+  HeaderFilterRegex: '*'
+  AnalyzeTemporaryDtors: false
+  FormatStyle:     file
+  CheckOptions:
+  ...
+  \end{lstlisting}
+\end{frame}
+% ------------------------------------------------------------------------------
+\begin{frame}[fragile]
+  \Large
+  Checking this {\em \larger bad} C++ code with \cmdname{clang-tidy};
+  \begin{lstlisting}[language=c++]
+  int main(int argc, const char** argv) {
+    const char str[] = "This is bad C++";
+    std::cout << str << std::endl;
+    return 0;
+  }
+  \end{lstlisting}
+  we will get the following analysis findings:
+  \footnotesize
+  \begin{verbatim}
+  .../bad01.cpp:4:11: error: do not declare C-style arrays,
+  use std::array<> instead [hicpp-avoid-c-arrays,-warnings-as-errors]
+    const char str[] = "This is bad C++";
+          ^
+  .../bad01.cpp:5:18: error: do not implicitly decay an array into a pointer;
+  consider using gsl::array_view or an explicit cast instead
+  [hicpp-no-array-decay,-warnings-as-errors]
+    std::cout << str << std::endl;
+  \end{verbatim}
+\end{frame}
 % - Motivation -----------------------------------------------------------------
 \section{Motivation}
 % ------------------------------------------------------------------------------
@@ -230,9 +274,9 @@
             \end{itemize}
             \item otherwise
             \begin{itemize}
-            \item runs \cmdname{clang-tidy} and if
+            \item runs \cmdname{clang-tidy}, and if
                 successful\footnote{if there are no warnings or errors reported}
-                store the hash.
+                stores the hash.
             \begin{itemize}
             \large
             \item This means that {\larger sources with findings keep being
@@ -244,9 +288,10 @@
 \end{frame}
 % ------------------------------------------------------------------------------
 \begin{frame}[fragile]
-  \frametitle{How is it used?}
-  \LARGE
-  Create\footnote{or use the one in the repository} a wrapper script, like:
+  \frametitle{How do I use it?}
+  \Large
+  Create\footnote{or use the one in the repository} a wrapper script,
+    called \cmdname{clang-tidy}, like:
   \begin{lstlisting}[language=bash]
   #!/bin/bash
   REAL_CT=/full/path/to/clang-tidy
@@ -254,7 +299,7 @@
   /path/to/clang-tidy-cache \
     "${REAL_CT}" "${@}"
   \end{lstlisting}
-  Put it into a directory in search \inlinecode{PATH}, before real
+  Put it into a directory listed in search \inlinecode{PATH}, before real
   \cmdname{clang-tidy}:
   \begin{lstlisting}[language=bash]
   export PATH="/path/to/wrapper-script-dir:${PATH}"
@@ -517,6 +562,7 @@
       \texttt{CTCACHE\_DISABLE} & \checkmark & & disables cache, always runs \inlinecode{clang-tidy}\\
       \texttt{CTCACHE\_SKIP} & \checkmark & & disables analysis, client returns \say{OK} immediately \\
       \texttt{CTCACHE\_STRIP} & \checkmark & & list of strings stripped from hashed inputs \\
+      \texttt{CTCACHE\_DUMP} & \checkmark & & enables dumping of everything that is hashed into a file \\
       \texttt{CTCACHE\_DIR} & \checkmark & & the cache directory in local mode \\
       \texttt{CTCACHE\_HOST} & \checkmark & \checkmark & hostname or IP address of the server \\
       \texttt{CTCACHE\_PORT} & \checkmark & \checkmark & port number on which the server accepts connections \\
@@ -789,14 +835,30 @@
   \Large
   \begin{itemize}
   \item \inlinecode{CTCACHE\_STRIP} -- List of colon-separated strings, which
-      are removed from the input strings.
+      are removed from the hashed inputs.
   \begin{itemize}
   \item For example \inlinecode{CTCACHE\_STRIP="/home/user/myproject:/opt/custom/libs"}.
   \end{itemize}
   \item If the \say{right} strings are stripped by every user $\rightarrow$
       the same hashes are generated.
   \item {\larger May be somewhat tricky to setup properly.}
-  \item {\larger If set-up incorrectly may lead to false positives!}
+  \item {If set-up incorrectly may lead to false positives in some cases!}
+  \end{itemize}
+\end{frame}
+% ------------------------------------------------------------------------------
+\begin{frame}
+  \frametitle{The \inlinecode{CTCACHE\_DUMP} variable}
+  \Large
+  \begin{itemize}
+  \item If defined in the environment where \cmdname{clang-tidy-cache} is
+      executed, then everything that is hashed, is dumped into a file:
+  \begin{itemize}
+      \item \inlinecode{/tmp/ctcache.dump}
+      \item in append mode.
+  \end{itemize}
+  \item This can help tweaking the content of the \inlinecode{CTCACHE\_STRIP}
+      variable and help to achieve the same hashes for the \say{same} builds
+      in various users' environments.
   \end{itemize}
 \end{frame}
 % ------------------------------------------------------------------------------
