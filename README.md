@@ -54,6 +54,9 @@ REAL_CT=/full/path/to/clang-tidy
 /path/to/clang-tidy-cache "${REAL_CT}" "${@}"
 ```
 
+You can also use the [prepared wrapper script](blob/main/clang-tidy) from
+the repository and adapt it to your needs.
+
 Make sure to set write permissions properly to prevent tampering by unauthorized
 users!
 
@@ -111,4 +114,11 @@ typing `http://localhost:5000/` into the browser's address bar.
 ![the dashboard](doc/dashboard.png "The dashboard")
 
 It displays basic information about the cache, like cache hit rate, number
-of cached hashes, etc. and some charts.
+of cached hashesm uptime, etc. and some charts providing information about
+the current state of the server.
+
+## See also
+
+There is a presentation describing the motivation, implementation, deployment
+and configuration options, and some performance measurements
+[in the doc subdirectory](doc/overview.pdf).
