@@ -54,7 +54,7 @@ REAL_CT=/full/path/to/clang-tidy
 /path/to/clang-tidy-cache "${REAL_CT}" "${@}"
 ```
 
-You can also use the [prepared wrapper script](blob/main/clang-tidy) from
+You can also use the [prepared wrapper script](./clang-tidy) from
 the repository and adapt it to your needs.
 
 Make sure to set write permissions properly to prevent tampering by unauthorized
