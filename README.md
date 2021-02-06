@@ -101,6 +101,24 @@ docker volume create ctcache
 docker run -p "80:5000" -v "ctcache:/var/lib/ctcache" -it --rm --name ctcache ctcache
 ```
 
+### Environment variables
+
+The client and server can be configured by setting the following environment
+variables:
+
+|      variable      |client|server|                description                |
+|--------------------|:----:|:----:|-------------------------------------------|
+|`CTCACHE_CLANG_TIDY`|  ✓   |      | path to the `clang-tidy` executable       |
+|`CTCACHE_DISABLE`   |  ✓   |      | disables cache, always runs `clang-tidy`  |
+|`CTCACHE_SKIP`      |  ✓   |      | disables analysis altogether, returns OK  |
+|`CTCACHE_STRIP`     |  ✓   |      | list of strings stripped from inputs      |
+|`CTCACHE_DUMP`      |  ✓   |      | dumps all hash inputs into a file         |
+|`CTCACHE_DIR`       |  ✓   |      | the cache storage directory in local mode |
+|`CTCACHE_HOST`      |  ✓   |  ✓   | hostname or IP address of the server      |
+|`CTCACHE_PORT`      |  ✓   |  ✓   | listening port of the server              |
+|`CTCACHE_WEBROOT`   |      |  ✓   | directory containin static server files   |
+
+
 ### The dashboard
 
 The clang tidy cache's HTTP server also serves a couple of web pages
@@ -114,7 +132,7 @@ typing `http://localhost:5000/` into the browser's address bar.
 ![the dashboard](doc/dashboard.png "The dashboard")
 
 It displays basic information about the cache, like cache hit rate, number
-of cached hashesm uptime, etc. and some charts providing information about
+of cached hashes, uptime, etc. and some charts providing information about
 the current state of the server.
 
 ## See also
