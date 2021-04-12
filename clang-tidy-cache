@@ -142,7 +142,7 @@ def find_ct_config(search_path):
 # ------------------------------------------------------------------------------
 def hash_inputs(opts):
     co_args = opts.compiler_args()
-    ct_args = opts.compiler_args()
+    ct_args = opts.clang_tidy_args()
     if not co_args and not ct_args:
         return None
 
