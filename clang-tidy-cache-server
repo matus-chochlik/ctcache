@@ -196,6 +196,7 @@ class ClangTidyCache(object):
         }
         self._stat_getters = {
             "uptime_seconds": self.uptime_seconds,
+            "saved_size_bytes": self.save_file_size,
             "saved_seconds_ago": self.saved_seconds_ago,
             "cleaned_seconds_ago": self.cleaned_seconds_ago,
             "total_hit_rate": self.total_hit_rate,
@@ -413,6 +414,11 @@ class ClangTidyCache(object):
     # --------------------------------------------------------------------------
     def save_path(self):
         return self._save_path
+
+    # --------------------------------------------------------------------------
+    def save_file_size(self):
+        try: return os.path.getsize(self.save_path())
+        except: return 0
 
     # --------------------------------------------------------------------------
     def static_path(self):
