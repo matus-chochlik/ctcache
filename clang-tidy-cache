@@ -44,6 +44,10 @@ class ClangTidyCacheOpts(object):
         try: return self._original_args[0] == "--cache-dir"
         except IndexError: return False
     # --------------------------------------------------------------------------
+    def should_print_stats(self):
+        try: return self._original_args[0] == "--show-stats"
+        except IndexError: return False
+    # --------------------------------------------------------------------------
     def should_remove_dir(self):
         try: return self._original_args[0] == "--clean"
         except IndexError: return False
@@ -215,6 +219,12 @@ def make_store_url(opts, digest):
         "digest": digest
     }
 # ------------------------------------------------------------------------------
+def make_stats_url(opts):
+    return "http://%(host)s:%(port)d/stats" % {
+        "host": opts.rest_host(),
+        "port": opts.rest_port()
+    }
+# ------------------------------------------------------------------------------
 def is_cached(opts, digest):
     path = make_path(opts, digest)
     if os.path.isfile(path):
@@ -237,6 +247,52 @@ def store_in_cache(opts, digest):
     p = make_path(opts, digest)
     mkdir_p(os.path.dirname(p))
     open(p, "w").close()
+# ------------------------------------------------------------------------------
+def query_stats(opts):
+    try:
+        query = requests.get(make_stats_url(opts), timeout=3)
+        if query.status_code == 200:
+            return query.json()
+    except: pass
+    return {}
+# ------------------------------------------------------------------------------
+def print_stats(opts):
+    def _format_time(s):
+        if s < 60:
+            return "%ds" % (s)
+        if s < 3600:
+            return "%dm %ds" % (s / 60, s % 60)
+        if s < 86400:
+            return "%dh %dm" % (s / 3600, (s / 60) % 60)
+        if s < 604800:
+            return "%dd %dh" % (s / 86400, (s / 3600) % 24)
+        if int(s / 86400) % 7 == 0:
+            return "%dwk" % (s / 604800)
+        return "%dwk %dd" % (s / 604800, (s / 86400) % 7)
+
+    stats = query_stats(opts)
+    entries = [
+        ("Server host", lambda o,s: o.rest_host()),
+        ("Server port", lambda o,s: "%d" % o.rest_port()),
+        ("Total hit rate", lambda o,s: "%.1f%%" % (s["total_hit_rate"] * 100.0)),
+        ("Hit rate", lambda o,s: "%.1f%%" % (s["hit_rate"] * 100.0)),
+        ("Hit count", lambda o,s: "%d" % s["hit_count"]),
+        ("Miss count", lambda o,s: "%d" % s["miss_count"]),
+        ("Miss rate", lambda o,s: "%.1f%%" % (s["miss_rate"] * 100.0)),
+        ("Max hash age", lambda o,s: "%d days" % max(int(k) for k in s["age_days_histogram"])),
+        ("Max hash hits", lambda o,s: "%d" % max(int(k) for k in s["hit_count_histogram"])),
+        ("Cached hashes", lambda o,s: "%d" % s["cached_count"]),
+        ("Cleaned hashes", lambda o,s: "%d" % s["cleaned_count"]),
+        ("Cleaned ago", lambda o,s: _format_time(s["cleaned_seconds_ago"])),
+        ("Saved ago", lambda o,s: _format_time(s["saved_seconds_ago"])),
+        ("Uptime", lambda o,s: _format_time(s["uptime_seconds"]))
+    ]
+
+    max_len = max(len(e[0]) for e in entries)
+    for label, fmtfunc in entries:
+        padding = " " * (max_len-len(label))
+        try: print(label+":", padding, fmtfunc(opts, stats))
+        except: print(label+":", padding, "N/A")
 # ------------------------------------------------------------------------------
 def run_clang_tidy_cached(log, opts):
     digest = None
@@ -266,6 +322,8 @@ def main():
         elif opts.should_remove_dir():
             import shutil
             shutil.rmtree(opts.cache_dir())
+        elif opts.should_print_stats():
+            print_stats(opts)
         else:
             return run_clang_tidy_cached(log, opts)
         return 0
