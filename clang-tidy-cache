@@ -257,30 +257,38 @@ def query_stats(opts):
     return {}
 # ------------------------------------------------------------------------------
 def print_stats(opts):
+    def _format_bytes(s):
+        if s < 10000:
+            return "%d B" % (s)
+        if s < 10000000:
+            return "%d kB" % (s / 1000)
+        return "%d MB" % (s / 1000000)
+
     def _format_time(s):
         if s < 60:
-            return "%ds" % (s)
+            return "%d seconds" % (s)
         if s < 3600:
-            return "%dm %ds" % (s / 60, s % 60)
+            return "%d minutes %d seconds" % (s / 60, s % 60)
         if s < 86400:
-            return "%dh %dm" % (s / 3600, (s / 60) % 60)
+            return "%d hours %d minutes" % (s / 3600, (s / 60) % 60)
         if s < 604800:
-            return "%dd %dh" % (s / 86400, (s / 3600) % 24)
+            return "%d days %d hours" % (s / 86400, (s / 3600) % 24)
         if int(s / 86400) % 7 == 0:
-            return "%dwk" % (s / 604800)
-        return "%dwk %dd" % (s / 604800, (s / 86400) % 7)
+            return "%d weeks" % (s / 604800)
+        return "%d weeks %d days" % (s / 604800, (s / 86400) % 7)
 
     stats = query_stats(opts)
     entries = [
         ("Server host", lambda o,s: o.rest_host()),
         ("Server port", lambda o,s: "%d" % o.rest_port()),
-        ("Total hit rate", lambda o,s: "%.1f%%" % (s["total_hit_rate"] * 100.0)),
-        ("Hit rate", lambda o,s: "%.1f%%" % (s["hit_rate"] * 100.0)),
+        ("Long-term hit rate", lambda o,s: "%.1f %%" % (s["total_hit_rate"] * 100.0)),
+        ("Hit rate", lambda o,s: "%.1f %%" % (s["hit_rate"] * 100.0)),
         ("Hit count", lambda o,s: "%d" % s["hit_count"]),
         ("Miss count", lambda o,s: "%d" % s["miss_count"]),
-        ("Miss rate", lambda o,s: "%.1f%%" % (s["miss_rate"] * 100.0)),
+        ("Miss rate", lambda o,s: "%.1f %%" % (s["miss_rate"] * 100.0)),
         ("Max hash age", lambda o,s: "%d days" % max(int(k) for k in s["age_days_histogram"])),
         ("Max hash hits", lambda o,s: "%d" % max(int(k) for k in s["hit_count_histogram"])),
+        ("Cache size", lambda o,s: _format_bytes(s["saved_size_bytes"])),
         ("Cached hashes", lambda o,s: "%d" % s["cached_count"]),
         ("Cleaned hashes", lambda o,s: "%d" % s["cleaned_count"]),
         ("Cleaned ago", lambda o,s: _format_time(s["cleaned_seconds_ago"])),
