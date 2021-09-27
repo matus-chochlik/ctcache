@@ -584,7 +584,7 @@
   \frametitle{Test projects}
     \Large
     \begin{itemize}
-    \item Project 1 (small):
+    \item Project 1 (tiny):
     \begin{itemize}
     \large
     \item proprietary C++ training examples,
@@ -592,19 +592,19 @@
     \item part of the code is not analyzed,
     \item {\larger $\approx$ 6300 LOC}, {\em \larger tens} of build targets.
     \end{itemize}
-    \item Project 2 (medium):
+    \item Project 2 (small):
     \begin{itemize}
     \large
     \item open-source C++ wrapper for EGL, OpenGL, OpenAL, \ldots,
     \item \url{https://github.com/matus-chochlik/oglplu2},
-    \item {\larger $\approx$ 135k LOC}, {\em \larger hundreds} of build targets.
+    \item {\larger $\approx$ 150k LOC}, {\em \larger hundreds} of build targets.
     \end{itemize}
-    \item Project 3 (large):
+    \item Project 3 (medium):
     \begin{itemize}
     \large
     \item proprietary, production code for embedded HW,
     \item there are some unfixed findings -- some sources are re-checked,
-    \item {\larger $\approx$ 750k LOC}, {\em \larger thousands} of build targets.
+    \item {\larger $\approx$ 1M LOC}, {\em \larger thousands} of build targets.
     \end{itemize}
     \end{itemize}
 \end{frame}
@@ -813,7 +813,7 @@
       same platform, same compiler, STL and library versions},
   \item they have access to the same \cmdname{clang-tidy-cache-server} instance,
   \item and they setup the \inlinecode{CTCACHE\_STRIP} variable properly,
-  \item they can share each others, cached static analysis results.
+  \item they can share each-others', cached static analysis results.
   \end{itemize}
 \end{frame}
 % ------------------------------------------------------------------------------
