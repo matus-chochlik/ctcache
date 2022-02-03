@@ -22,8 +22,8 @@ class ClangTidyCacheOpts(object):
     # --------------------------------------------------------------------------
     def __init__(self, log, args):
         self._original_args = args
-        self._clang_tidy_args = None
-        self._compiler_args = None
+        self._clang_tidy_args = []
+        self._compiler_args = []
 
         self._strip_list = os.getenv("CTCACHE_STRIP", "").split(':')
 
