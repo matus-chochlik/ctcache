@@ -6,9 +6,22 @@ if [[ ${CTCACHE_SKIP:-0} -ne 0 ]]
 then exit 0
 fi
 
+for dir in "/etc/ctcache" "${HOME}/.config/ctcache"
+do
+	if [[ -d "${dir}" ]]
+	then
+		for cfg in "${dir}"/*.conf
+		do
+			if [[ -f "${cfg}" ]]
+			then source "${cfg}"
+			fi
+		done
+	fi
+done
+
 CTCACHE_CLANG_TIDY="${CTCACHE_CLANG_TIDY:-/usr/bin/clang-tidy}"
 
 if [[ ${CTCACHE_DISABLE:-0} -ne 0 ]]
-then "${CTCACHE_CLANG_TIDY}" "${@}"
-else "$(dirname $(realpath ${0}))/clang-tidy-cache" "${CTCACHE_CLANG_TIDY}" "${@}"
+then "${CTCACHE_CLANG_TIDY}" "${CTCACHE_CLANG_TIDY_OPTS[@]}" "${@}"
+else "$(dirname $(realpath ${0}))/clang-tidy-cache" "${CTCACHE_CLANG_TIDY}" "${CTCACHE_CLANG_TIDY_OPTS[@]}" "${@}"
 fi
