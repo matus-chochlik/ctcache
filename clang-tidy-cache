@@ -105,7 +105,7 @@ class ClangTidyCacheOpts(object):
 
     # --------------------------------------------------------------------------
     def has_s3(self):
-        return os.getenv("CTCACHE_S3_BUCKET") is not None
+        return "CTCACHE_S3_BUCKET" in os.environ
 
     # --------------------------------------------------------------------------
     def s3_bucket(self):
