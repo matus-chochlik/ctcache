@@ -9,15 +9,18 @@ import os
 import re
 import sys
 import errno
-import shutil
 import getpass
 import logging
 import hashlib
 import requests
 import tempfile
 import subprocess
+import boto3
+import botocore
 
 # ------------------------------------------------------------------------------
+
+
 class ClangTidyCacheOpts(object):
     # --------------------------------------------------------------------------
     def __init__(self, log, args):
@@ -43,26 +46,38 @@ class ClangTidyCacheOpts(object):
 
     # --------------------------------------------------------------------------
     def should_print_dir(self):
-        try: return self._original_args[0] == "--cache-dir"
-        except IndexError: return False
+        try:
+            return self._original_args[0] == "--cache-dir"
+        except IndexError:
+            return False
     # --------------------------------------------------------------------------
+
     def should_print_stats(self):
-        try: return self._original_args[0] == "--show-stats"
-        except IndexError: return False
+        try:
+            return self._original_args[0] == "--show-stats"
+        except IndexError:
+            return False
     # --------------------------------------------------------------------------
+
     def should_remove_dir(self):
-        try: return self._original_args[0] == "--clean"
-        except IndexError: return False
+        try:
+            return self._original_args[0] == "--clean"
+        except IndexError:
+            return False
     # --------------------------------------------------------------------------
+
     def original_args(self):
         return self._original_args
     # --------------------------------------------------------------------------
+
     def clang_tidy_args(self):
         return self._clang_tidy_args
     # --------------------------------------------------------------------------
+
     def compiler_args(self):
         return self._compiler_args
     # --------------------------------------------------------------------------
+
     def cache_dir(self):
         return os.getenv(
             "CTCACHE_DIR",
@@ -89,6 +104,22 @@ class ClangTidyCacheOpts(object):
         return r
 
     # --------------------------------------------------------------------------
+    def has_s3(self):
+        return "CTCACHE_S3_BUCKET" in os.environ
+
+    # --------------------------------------------------------------------------
+    def s3_bucket(self):
+        return os.getenv("CTCACHE_S3_BUCKET")
+
+    # --------------------------------------------------------------------------
+    def s3_bucket_folder(self):
+        return os.getenv("CTCACHE_S3_FOLDER", 'clang-tidy-cache')
+
+    # --------------------------------------------------------------------------
+    def has_host(self):
+        return os.getenv("CTCACHE_HOST") is not None
+
+    # --------------------------------------------------------------------------
     def rest_host(self):
         return os.getenv("CTCACHE_HOST", "localhost")
 
@@ -101,6 +132,8 @@ class ClangTidyCacheOpts(object):
         return "CTCACHE_DUMP" in os.environ
 
 # ------------------------------------------------------------------------------
+
+
 class ClangTidyCacheHash(object):
     # --------------------------------------------------------------------------
     def _opendump(self, opts):
@@ -128,8 +161,218 @@ class ClangTidyCacheHash(object):
     def hexdigest(self):
         return self._hash.hexdigest()
 
+
+class ClangTidyLocalCache(object):
+    def __init__(self, log, opts):
+        self._log = log
+        self._opts = opts
+
+    def is_cached(self, opts, digest):
+        path = self._make_path(digest)
+        if os.path.isfile(path):
+            os.utime(path, None)
+            return True
+        return False
+
+    def store_in_cache(self, opts, digest):
+        p = self._make_path(digest)
+        self._mkdir_p(os.path.dirname(p))
+        open(p, "w").close()
+
+    def _mkdir_p(self, path):
+        try:
+            os.makedirs(path)
+        except OSError as os_error:
+            if os_error.errno == errno.EEXIST and os.path.isdir(path):
+                pass
+            else:
+                raise
+
+    def _make_path(self, digest):
+        return os.path.join(
+            self._opts.cache_dir(),
+            digest[:2],
+            digest[2:]
+        )
+
+
+class ClangTidyServerCache(object):
+    def __init__(self, log, opts):
+        self._log = log
+        self._opts = opts
+
+    def is_cached(self, digest):
+        try:
+            query = requests.get(self._make_query_url(digest), timeout=3)
+            if query.status_code == 200:
+                if query.json() == True:
+                    return True
+                else:
+                    self._log.error("is_cached: Can't connect to server {0}, error {1}".format(
+                        self._opts.rest_host(), query.status_code))
+        except:
+            pass
+        return False
+
+    def store_in_cache(self, digest):
+        try:
+            query = requests.get(self._make_store_url(digest), timeout=3)
+            if query.status_code == 200:
+                return
+            else:
+                self._log.error("store_in_cache: Can't store data in server {0}, error {1}".format(
+                    self._opts.rest_host(), query.status_code))
+        except:
+            pass
+
+    def query_stats(self):
+        try:
+            query = requests.get(self._make_stats_url(), timeout=3)
+            if query.status_code == 200:
+                return query.json()
+            else:
+                self._log.error("query_stats: Can't connect to server {0}, error {1}".format(
+                    self._opts.rest_host(), query.status_code))
+        except:
+            pass
+        return {}
+
+    def _make_query_url(self, digest):
+        return "http://%(host)s:%(port)d/is_cached/%(digest)s" % {
+            "host": self._opts.rest_host(),
+            "port": self._opts.rest_port(),
+            "digest": digest
+        }
+
+    def make_store_url(self, digest):
+        return "http://%(host)s:%(port)d/cache/%(digest)s" % {
+            "host": self._opts.rest_host(),
+            "port": self._opts.rest_port(),
+            "digest": digest
+        }
+
+    def make_stats_url(self):
+        return "http://%(host)s:%(port)d/stats" % {
+            "host": self._opts.rest_host(),
+            "port": self._opts.rest_port()
+        }
+
+
+class ClangTidyLocalCache(object):
+    def __init__(self, log, opts):
+        self._log = log
+        self._opts = opts
+
+    def is_cached(self, digest):
+        path = self._make_path(digest)
+        if os.path.isfile(path):
+            os.utime(path, None)
+            return True
+
+        return False
+
+    def store_in_cache(self, digest):
+        p = self._make_path(digest)
+        self._mkdir_p(os.path.dirname(p))
+        open(p, "w").close()
+
+    def _mkdir_p(self, path):
+        try:
+            os.makedirs(path)
+        except OSError as os_error:
+            if os_error.errno == errno.EEXIST and os.path.isdir(path):
+                pass
+            else:
+                raise
+
+    def _make_path(self, digest):
+        return os.path.join(
+            self._opts.cache_dir(),
+            digest[:2],
+            digest[2:]
+        )
+
+
+class ClangTidyS3Cache(object):
+    def __init__(self, log, opts):
+        self._log = log
+        self._opts = opts
+        self._client = boto3.client('s3')
+        self._bucket = opts.s3_bucket()
+        self._bucket_folder = opts.s3_bucket_folder()
+
+    def is_cached(self, digest):
+        try:
+            path = self._make_path(digest)
+            self._client.get_object(Bucket=self._bucket, Key=path)
+        except botocore.exceptions.ClientError as e:
+            if e.response['Error']['Code'] == "NoSuchKey":
+                return False
+            else:
+                self._log.error(
+                    "Error calling S3:get_object {}".format(str(e)))
+                raise
+
+        return True
+
+    def store_in_cache(self, digest):
+        try:
+            path = self._make_path(digest)
+            self._client.put_object(Bucket=self._bucket, Key=path, Body=digest)
+        except botocore.exceptions.ClientError as e:
+            self._log.error("Error calling S3:put_object {}".format(str(e)))
+            raise
+
+    def _make_path(self, digest):
+        return os.path.join(
+            self._bucket_folder,
+            digest[:2],
+            digest[2:]
+        )
+
+
+class ClangTidyCache(object):
+    def __init__(self, log, opts):
+        self._log = log
+        self._opts = opts
+        self._local_cache = ClangTidyLocalCache(log, opts)
+        self._server_cache = ClangTidyServerCache(
+            log, opts) if opts.has_host() else None
+        self._s3_cache = ClangTidyS3Cache(
+            log, opts) if opts.has_s3() else None
+
+    def is_cached(self, digest):
+        if self._local_cache.is_cached(digest):
+            return True
+
+        if self._server_cache != None and self._server_cache.is_cached(digest):
+            return True
+
+        if self._s3_cache != None and self._s3_cache.is_cached(digest):
+            return True
+
+        return False
+
+    def store_in_cache(self, digest):
+        self._local_cache.store_in_cache(digest)
+
+        if self._server_cache != None:
+            self._server_cache.store_in_cache(digest)
+
+        if self._s3_cache != None:
+            self._s3_cache.store_in_cache(digest)
+
+    def query_stats(self):
+        if self._server_cache is not None:
+            return self._server_cache.query_stats()
+
+        return {}
+
+
 # ------------------------------------------------------------------------------
 source_file_change_re = re.compile(r'#\s+\d+\s+"([^"]+)".*')
+
+
 def source_file_changed(cpp_line):
     found = source_file_change_re.match(cpp_line)
     if found:
@@ -138,6 +381,8 @@ def source_file_changed(cpp_line):
             return os.path.realpath(os.path.dirname(found_path))
 
 # ------------------------------------------------------------------------------
+
+
 def find_ct_config(search_path):
     while search_path and search_path != "/":
         search_path = os.path.dirname(search_path)
@@ -146,6 +391,8 @@ def find_ct_config(search_path):
             return ct_config
 
 # ------------------------------------------------------------------------------
+
+
 def hash_inputs(opts):
     co_args = opts.compiler_args()
     ct_args = opts.clang_tidy_args()
@@ -195,70 +442,8 @@ def hash_inputs(opts):
 
     return result.hexdigest()
 # ------------------------------------------------------------------------------
-def mkdir_p(path):
-    try: os.makedirs(path)
-    except OSError as os_error:
-        if os_error.errno == errno.EEXIST and os.path.isdir(path): pass
-        else: raise
-# ------------------------------------------------------------------------------
-def make_path(opts, digest):
-    return os.path.join(
-        opts.cache_dir(),
-        digest[:2],
-        digest[2:]
-    )
-# ------------------------------------------------------------------------------
-def make_query_url(opts, digest):
-    return "http://%(host)s:%(port)d/is_cached/%(digest)s" % {
-        "host": opts.rest_host(),
-        "port": opts.rest_port(),
-        "digest": digest
-    }
-# ------------------------------------------------------------------------------
-def make_store_url(opts, digest):
-    return "http://%(host)s:%(port)d/cache/%(digest)s" % {
-        "host": opts.rest_host(),
-        "port": opts.rest_port(),
-        "digest": digest
-    }
-# ------------------------------------------------------------------------------
-def make_stats_url(opts):
-    return "http://%(host)s:%(port)d/stats" % {
-        "host": opts.rest_host(),
-        "port": opts.rest_port()
-    }
-# ------------------------------------------------------------------------------
-def is_cached(opts, digest):
-    path = make_path(opts, digest)
-    if os.path.isfile(path):
-        os.utime(path, None)
-        return True
-    try:
-        query = requests.get(make_query_url(opts, digest), timeout=3)
-        if query.status_code == 200:
-            if query.json() == True:
-                return True
-    except: pass
-    return False
-# ------------------------------------------------------------------------------
-def store_in_cache(opts, digest):
-    try:
-        query = requests.get(make_store_url(opts, digest), timeout=3)
-        if query.status_code == 200:
-            return
-    except: pass
-    p = make_path(opts, digest)
-    mkdir_p(os.path.dirname(p))
-    open(p, "w").close()
-# ------------------------------------------------------------------------------
-def query_stats(opts):
-    try:
-        query = requests.get(make_stats_url(opts), timeout=3)
-        if query.status_code == 200:
-            return query.json()
-    except: pass
-    return {}
-# ------------------------------------------------------------------------------
+
+
 def print_stats(opts):
     def _format_bytes(s):
         if s < 10000:
@@ -282,50 +467,61 @@ def print_stats(opts):
 
     stats = query_stats(opts)
     entries = [
-        ("Server host", lambda o,s: o.rest_host()),
-        ("Server port", lambda o,s: "%d" % o.rest_port()),
-        ("Long-term hit rate", lambda o,s: "%.1f %%" % (s["total_hit_rate"] * 100.0)),
-        ("Hit rate", lambda o,s: "%.1f %%" % (s["hit_rate"] * 100.0)),
-        ("Hit count", lambda o,s: "%d" % s["hit_count"]),
-        ("Miss count", lambda o,s: "%d" % s["miss_count"]),
-        ("Miss rate", lambda o,s: "%.1f %%" % (s["miss_rate"] * 100.0)),
-        ("Max hash age", lambda o,s: "%d days" % max(int(k) for k in s["age_days_histogram"])),
-        ("Max hash hits", lambda o,s: "%d" % max(int(k) for k in s["hit_count_histogram"])),
-        ("Cache size", lambda o,s: _format_bytes(s["saved_size_bytes"])),
-        ("Cached hashes", lambda o,s: "%d" % s["cached_count"]),
-        ("Cleaned hashes", lambda o,s: "%d" % s["cleaned_count"]),
-        ("Cleaned ago", lambda o,s: _format_time(s["cleaned_seconds_ago"])),
-        ("Saved ago", lambda o,s: _format_time(s["saved_seconds_ago"])),
-        ("Uptime", lambda o,s: _format_time(s["uptime_seconds"]))
+        ("Server host", lambda o, s: o.rest_host()),
+        ("Server port", lambda o, s: "%d" % o.rest_port()),
+        ("Long-term hit rate", lambda o, s: "%.1f %%" %
+         (s["total_hit_rate"] * 100.0)),
+        ("Hit rate", lambda o, s: "%.1f %%" % (s["hit_rate"] * 100.0)),
+        ("Hit count", lambda o, s: "%d" % s["hit_count"]),
+        ("Miss count", lambda o, s: "%d" % s["miss_count"]),
+        ("Miss rate", lambda o, s: "%.1f %%" % (s["miss_rate"] * 100.0)),
+        ("Max hash age", lambda o, s: "%d days" %
+         max(int(k) for k in s["age_days_histogram"])),
+        ("Max hash hits", lambda o, s: "%d" % max(int(k)
+         for k in s["hit_count_histogram"])),
+        ("Cache size", lambda o, s: _format_bytes(s["saved_size_bytes"])),
+        ("Cached hashes", lambda o, s: "%d" % s["cached_count"]),
+        ("Cleaned hashes", lambda o, s: "%d" % s["cleaned_count"]),
+        ("Cleaned ago", lambda o, s: _format_time(s["cleaned_seconds_ago"])),
+        ("Saved ago", lambda o, s: _format_time(s["saved_seconds_ago"])),
+        ("Uptime", lambda o, s: _format_time(s["uptime_seconds"]))
     ]
 
     max_len = max(len(e[0]) for e in entries)
     for label, fmtfunc in entries:
         padding = " " * (max_len-len(label))
-        try: print(label+":", padding, fmtfunc(opts, stats))
-        except: print(label+":", padding, "N/A")
+        try:
+            print(label+":", padding, fmtfunc(opts, stats))
+        except:
+            print(label+":", padding, "N/A")
 # ------------------------------------------------------------------------------
+
+
 def run_clang_tidy_cached(log, opts):
+    cache = ClangTidyCache(log, opts)
     digest = None
     try:
         digest = hash_inputs(opts)
-        if digest:
-            if is_cached(opts, digest):
-                return 0
+        if digest and cache.is_cached(digest):
+            return 0
     except Exception as error:
         log.error(str(error))
 
     result = subprocess.call(opts.original_args())
 
     if result == 0 and digest:
-        try: store_in_cache(opts, digest)
+        try:
+            cache.store_in_cache(digest)
         except Exception as error:
             log.error(str(error))
 
     return result
 # ------------------------------------------------------------------------------
+
+
 def main():
     log = logging.getLogger(os.path.basename(__file__))
+    log.setLevel(logging.WARNING)
     try:
         opts = ClangTidyCacheOpts(log, sys.argv[1:])
         if opts.should_print_dir():
@@ -341,6 +537,8 @@ def main():
     except Exception as error:
         log.error(str(error))
         return 1
+
+
 # ------------------------------------------------------------------------------
 if __name__ == "__main__":
     sys.exit(main())
