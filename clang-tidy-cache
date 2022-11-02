@@ -27,6 +27,7 @@ class ClangTidyCacheOpts(object):
         self._original_args = args
         self._clang_tidy_args = []
         self._compiler_args = []
+        self._cache_dir = ""
 
         self._strip_list = os.getenv("CTCACHE_STRIP", "").split(':')
 
@@ -78,14 +79,22 @@ class ClangTidyCacheOpts(object):
         return self._compiler_args
     # --------------------------------------------------------------------------
 
+    @property
     def cache_dir(self):
-        return os.getenv(
+        if self._cache_dir:
+            return self._cache_dir
+
+        try:
+            user = getpass.getuser()
+        except KeyError:
+            user = "unknown"
+        self._cache_dir = os.getenv(
             "CTCACHE_DIR",
             os.path.join(
-                tempfile.tempdir if tempfile.tempdir else "/tmp",
-                "ctcache-"+getpass.getuser()
-            )
+                tempfile.tempdir if tempfile.tempdir else "/tmp", "ctcache-" + user
+            ),
         )
+        return self._cache_dir
 
     # --------------------------------------------------------------------------
     def adjust_chunk(self, x):
@@ -189,11 +198,7 @@ class ClangTidyLocalCache(object):
                 raise
 
     def _make_path(self, digest):
-        return os.path.join(
-            self._opts.cache_dir(),
-            digest[:2],
-            digest[2:]
-        )
+        return os.path.join(self._opts.cache_dir, digest[:2], digest[2:])
 
 
 class ClangTidyServerCache(object):
@@ -286,11 +291,7 @@ class ClangTidyLocalCache(object):
                 raise
 
     def _make_path(self, digest):
-        return os.path.join(
-            self._opts.cache_dir(),
-            digest[:2],
-            digest[2:]
-        )
+        return os.path.join(self._opts.cache_dir, digest[:2], digest[2:])
 
 
 class ClangTidyS3Cache(object):
@@ -525,10 +526,11 @@ def main():
     try:
         opts = ClangTidyCacheOpts(log, sys.argv[1:])
         if opts.should_print_dir():
-            print(opts.cache_dir())
+            print(opts.cache_dir)
         elif opts.should_remove_dir():
             import shutil
-            shutil.rmtree(opts.cache_dir())
+
+            shutil.rmtree(opts.cache_dir)
         elif opts.should_print_stats():
             print_stats(opts)
         else:
