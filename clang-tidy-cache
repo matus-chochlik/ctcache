@@ -15,8 +15,6 @@ import hashlib
 import requests
 import tempfile
 import subprocess
-import boto3
-import botocore
 
 # ------------------------------------------------------------------------------
 
@@ -296,9 +294,12 @@ class ClangTidyLocalCache(object):
 
 class ClangTidyS3Cache(object):
     def __init__(self, log, opts):
+        from boto3 import client
+        from botocore.exceptions import ClientError
+        self._ClientError = ClientError
         self._log = log
         self._opts = opts
-        self._client = boto3.client('s3')
+        self._client = client('s3')
         self._bucket = opts.s3_bucket()
         self._bucket_folder = opts.s3_bucket_folder()
 
@@ -306,7 +307,7 @@ class ClangTidyS3Cache(object):
         try:
             path = self._make_path(digest)
             self._client.get_object(Bucket=self._bucket, Key=path)
-        except botocore.exceptions.ClientError as e:
+        except self._ClientError as e:
             if e.response['Error']['Code'] == "NoSuchKey":
                 return False
             else:
@@ -320,7 +321,7 @@ class ClangTidyS3Cache(object):
         try:
             path = self._make_path(digest)
             self._client.put_object(Bucket=self._bucket, Key=path, Body=digest)
-        except botocore.exceptions.ClientError as e:
+        except self._ClientError as e:
             self._log.error("Error calling S3:put_object {}".format(str(e)))
             raise
 
