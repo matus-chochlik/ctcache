@@ -15,6 +15,8 @@ import hashlib
 import requests
 import tempfile
 import subprocess
+import json
+import shlex
 
 # ------------------------------------------------------------------------------
 
@@ -26,13 +28,37 @@ class ClangTidyCacheOpts(object):
         self._clang_tidy_args = []
         self._compiler_args = []
         self._cache_dir = ""
+        self._compile_commands_db = None
 
         self._strip_list = os.getenv("CTCACHE_STRIP", "").split(':')
 
-        for i in range(len(args)):
-            if args[i] == "--":
-                self._clang_tidy_args = args[:i]
-                self._compiler_args = args[i+1:]
+        if args.count("--") == 1:
+            # Invoked with compiler args on the actual command line
+            i = args.index("--")
+            self._clang_tidy_args = args[:i]
+            self._compiler_args = args[i+1:]
+        elif args.count("-p") == 1:
+            # Invoked with compiler args in a compile commands json db
+            i = args.index("-p")
+            self._clang_tidy_args = args
+
+            i += 1
+            if i >= len(args):
+                return
+
+            cdb_path = args[i]
+            cdb = os.path.join(cdb_path, "compile_commands.json")
+            self._load_compile_command_db(cdb)
+
+            i += 1
+            if i >= len(args):
+                return
+
+            # This assumes that the filename occurs after the -p <cdb path>
+            # and that there is only one of them
+            filenames = [arg for arg in args[i:] if not arg.startswith("-")]
+            if len(filenames) > 0:
+                self._compiler_args = self._compiler_args_for(filenames[0])
 
         self._compiler_args.insert(1, "-D__clang_analyzer__=1")
 
@@ -42,8 +68,32 @@ class ClangTidyCacheOpts(object):
                     self._compiler_args[i] = "-"
                 if self._compiler_args[i-1] in ["-c"]:
                     self._compiler_args[i-1] = "-E"
-
     # --------------------------------------------------------------------------
+
+    def _load_compile_command_db(self, filename):
+        try:
+            f = open(filename)
+            self._compile_commands_db = json.load(f)
+            f.close()
+        except Exception:
+            return False
+    # --------------------------------------------------------------------------
+
+    def _compiler_args_for(self, filename):
+        if self._compile_commands_db == None:
+            return []
+
+        filename = os.path.expanduser(filename)
+        filename = os.path.realpath(filename)
+
+        for command in self._compile_commands_db:
+            db_filename = command["file"]
+            if os.path.samefile(filename, db_filename):
+                return shlex.split(command["command"])
+
+        return []
+    # --------------------------------------------------------------------------
+
     def should_print_dir(self):
         try:
             return self._original_args[0] == "--cache-dir"
