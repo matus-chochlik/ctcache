@@ -400,6 +400,9 @@ def hash_inputs(opts):
     if not co_args and not ct_args:
         return None
 
+    if len(co_args) == 0:
+        return None
+
     result = ClangTidyCacheHash(opts)
 
     proc = subprocess.Popen(
