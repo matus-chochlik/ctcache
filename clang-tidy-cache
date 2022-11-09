@@ -216,14 +216,14 @@ class ClangTidyServerCache(object):
             "digest": digest
         }
 
-    def make_store_url(self, digest):
+    def _make_store_url(self, digest):
         return "http://%(host)s:%(port)d/cache/%(digest)s" % {
             "host": self._opts.rest_host(),
             "port": self._opts.rest_port(),
             "digest": digest
         }
 
-    def make_stats_url(self):
+    def _make_stats_url(self):
         return "http://%(host)s:%(port)d/stats" % {
             "host": self._opts.rest_host(),
             "port": self._opts.rest_port()
