@@ -168,37 +168,6 @@ class ClangTidyCacheHash(object):
     def hexdigest(self):
         return self._hash.hexdigest()
 
-
-class ClangTidyLocalCache(object):
-    def __init__(self, log, opts):
-        self._log = log
-        self._opts = opts
-
-    def is_cached(self, opts, digest):
-        path = self._make_path(digest)
-        if os.path.isfile(path):
-            os.utime(path, None)
-            return True
-        return False
-
-    def store_in_cache(self, opts, digest):
-        p = self._make_path(digest)
-        self._mkdir_p(os.path.dirname(p))
-        open(p, "w").close()
-
-    def _mkdir_p(self, path):
-        try:
-            os.makedirs(path)
-        except OSError as os_error:
-            if os_error.errno == errno.EEXIST and os.path.isdir(path):
-                pass
-            else:
-                raise
-
-    def _make_path(self, digest):
-        return os.path.join(self._opts.cache_dir, digest[:2], digest[2:])
-
-
 class ClangTidyServerCache(object):
     def __init__(self, log, opts):
         self._log = log
@@ -247,14 +216,14 @@ class ClangTidyServerCache(object):
             "digest": digest
         }
 
-    def make_store_url(self, digest):
+    def _make_store_url(self, digest):
         return "http://%(host)s:%(port)d/cache/%(digest)s" % {
             "host": self._opts.rest_host(),
             "port": self._opts.rest_port(),
             "digest": digest
         }
 
-    def make_stats_url(self):
+    def _make_stats_url(self):
         return "http://%(host)s:%(port)d/stats" % {
             "host": self._opts.rest_host(),
             "port": self._opts.rest_port()
@@ -446,7 +415,7 @@ def hash_inputs(opts):
 # ------------------------------------------------------------------------------
 
 
-def print_stats(opts):
+def print_stats(log, opts):
     def _format_bytes(s):
         if s < 10000:
             return "%d B" % (s)
@@ -467,7 +436,8 @@ def print_stats(opts):
             return "%d weeks" % (s / 604800)
         return "%d weeks %d days" % (s / 604800, (s / 86400) % 7)
 
-    stats = query_stats(opts)
+    cache = ClangTidyCache(log, opts)
+    stats = cache.query_stats(opts)
     entries = [
         ("Server host", lambda o, s: o.rest_host()),
         ("Server port", lambda o, s: "%d" % o.rest_port()),
@@ -533,7 +503,7 @@ def main():
 
             shutil.rmtree(opts.cache_dir)
         elif opts.should_print_stats():
-            print_stats(opts)
+            print_stats(log, opts)
         else:
             return run_clang_tidy_cached(log, opts)
         return 0
