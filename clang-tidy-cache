@@ -168,37 +168,6 @@ class ClangTidyCacheHash(object):
     def hexdigest(self):
         return self._hash.hexdigest()
 
-
-class ClangTidyLocalCache(object):
-    def __init__(self, log, opts):
-        self._log = log
-        self._opts = opts
-
-    def is_cached(self, opts, digest):
-        path = self._make_path(digest)
-        if os.path.isfile(path):
-            os.utime(path, None)
-            return True
-        return False
-
-    def store_in_cache(self, opts, digest):
-        p = self._make_path(digest)
-        self._mkdir_p(os.path.dirname(p))
-        open(p, "w").close()
-
-    def _mkdir_p(self, path):
-        try:
-            os.makedirs(path)
-        except OSError as os_error:
-            if os_error.errno == errno.EEXIST and os.path.isdir(path):
-                pass
-            else:
-                raise
-
-    def _make_path(self, digest):
-        return os.path.join(self._opts.cache_dir, digest[:2], digest[2:])
-
-
 class ClangTidyServerCache(object):
     def __init__(self, log, opts):
         self._log = log
