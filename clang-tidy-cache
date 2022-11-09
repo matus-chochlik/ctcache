@@ -415,7 +415,7 @@ def hash_inputs(opts):
 # ------------------------------------------------------------------------------
 
 
-def print_stats(opts):
+def print_stats(log, opts):
     def _format_bytes(s):
         if s < 10000:
             return "%d B" % (s)
@@ -436,7 +436,8 @@ def print_stats(opts):
             return "%d weeks" % (s / 604800)
         return "%d weeks %d days" % (s / 604800, (s / 86400) % 7)
 
-    stats = query_stats(opts)
+    cache = ClangTidyCache(log, opts)
+    stats = cache.query_stats(opts)
     entries = [
         ("Server host", lambda o, s: o.rest_host()),
         ("Server port", lambda o, s: "%d" % o.rest_port()),
@@ -502,7 +503,7 @@ def main():
 
             shutil.rmtree(opts.cache_dir)
         elif opts.should_print_stats():
-            print_stats(opts)
+            print_stats(log, opts)
         else:
             return run_clang_tidy_cached(log, opts)
         return 0
