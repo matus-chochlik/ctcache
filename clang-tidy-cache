@@ -19,8 +19,6 @@ import json
 import shlex
 
 # ------------------------------------------------------------------------------
-
-
 class ClangTidyCacheOpts(object):
     # --------------------------------------------------------------------------
     def __init__(self, log, args):
@@ -67,8 +65,8 @@ class ClangTidyCacheOpts(object):
                     self._compiler_args[i] = "-"
                 if self._compiler_args[i-1] in ["-c"]:
                     self._compiler_args[i-1] = "-E"
-    # --------------------------------------------------------------------------
 
+    # --------------------------------------------------------------------------
     def _load_compile_command_db(self, filename):
         try:
             f = open(filename)
@@ -76,8 +74,8 @@ class ClangTidyCacheOpts(object):
             f.close()
         except Exception:
             return False
-    # --------------------------------------------------------------------------
 
+    # --------------------------------------------------------------------------
     def _compiler_args_for(self, filename):
         if self._compile_commands_db == None:
             return []
@@ -97,41 +95,41 @@ class ClangTidyCacheOpts(object):
                         return "clang-tidy"
 
         return []
-    # --------------------------------------------------------------------------
 
+    # --------------------------------------------------------------------------
     def should_print_dir(self):
         try:
             return self._original_args[0] == "--cache-dir"
         except IndexError:
             return False
-    # --------------------------------------------------------------------------
 
+    # --------------------------------------------------------------------------
     def should_print_stats(self):
         try:
             return self._original_args[0] == "--show-stats"
         except IndexError:
             return False
-    # --------------------------------------------------------------------------
 
+    # --------------------------------------------------------------------------
     def should_remove_dir(self):
         try:
             return self._original_args[0] == "--clean"
         except IndexError:
             return False
-    # --------------------------------------------------------------------------
 
+    # --------------------------------------------------------------------------
     def original_args(self):
         return self._original_args
-    # --------------------------------------------------------------------------
 
+    # --------------------------------------------------------------------------
     def clang_tidy_args(self):
         return self._clang_tidy_args
-    # --------------------------------------------------------------------------
 
+    # --------------------------------------------------------------------------
     def compiler_args(self):
         return self._compiler_args
-    # --------------------------------------------------------------------------
 
+    # --------------------------------------------------------------------------
     @property
     def cache_dir(self):
         if self._cache_dir:
@@ -194,8 +192,6 @@ class ClangTidyCacheOpts(object):
         return "CTCACHE_DUMP" in os.environ
 
 # ------------------------------------------------------------------------------
-
-
 class ClangTidyCacheHash(object):
     # --------------------------------------------------------------------------
     def _opendump(self, opts):
@@ -223,11 +219,13 @@ class ClangTidyCacheHash(object):
     def hexdigest(self):
         return self._hash.hexdigest()
 
+# ------------------------------------------------------------------------------
 class ClangTidyServerCache(object):
     def __init__(self, log, opts):
         self._log = log
         self._opts = opts
 
+    # --------------------------------------------------------------------------
     def is_cached(self, digest):
         try:
             query = requests.get(self._make_query_url(digest), timeout=3)
@@ -241,6 +239,7 @@ class ClangTidyServerCache(object):
             pass
         return False
 
+    # --------------------------------------------------------------------------
     def store_in_cache(self, digest):
         try:
             query = requests.get(self._make_store_url(digest), timeout=3)
@@ -252,6 +251,7 @@ class ClangTidyServerCache(object):
         except:
             pass
 
+    # --------------------------------------------------------------------------
     def query_stats(self):
         try:
             query = requests.get(self._make_stats_url(), timeout=3)
@@ -264,6 +264,7 @@ class ClangTidyServerCache(object):
             pass
         return {}
 
+    # --------------------------------------------------------------------------
     def _make_query_url(self, digest):
         return "http://%(host)s:%(port)d/is_cached/%(digest)s" % {
             "host": self._opts.rest_host(),
@@ -271,6 +272,7 @@ class ClangTidyServerCache(object):
             "digest": digest
         }
 
+    # --------------------------------------------------------------------------
     def _make_store_url(self, digest):
         return "http://%(host)s:%(port)d/cache/%(digest)s" % {
             "host": self._opts.rest_host(),
@@ -278,18 +280,21 @@ class ClangTidyServerCache(object):
             "digest": digest
         }
 
+    # --------------------------------------------------------------------------
     def _make_stats_url(self):
         return "http://%(host)s:%(port)d/stats" % {
             "host": self._opts.rest_host(),
             "port": self._opts.rest_port()
         }
 
-
+# ------------------------------------------------------------------------------
 class ClangTidyLocalCache(object):
+    # --------------------------------------------------------------------------
     def __init__(self, log, opts):
         self._log = log
         self._opts = opts
 
+    # --------------------------------------------------------------------------
     def is_cached(self, digest):
         path = self._make_path(digest)
         if os.path.isfile(path):
@@ -298,11 +303,13 @@ class ClangTidyLocalCache(object):
 
         return False
 
+    # --------------------------------------------------------------------------
     def store_in_cache(self, digest):
         p = self._make_path(digest)
         self._mkdir_p(os.path.dirname(p))
         open(p, "w").close()
 
+    # --------------------------------------------------------------------------
     def _mkdir_p(self, path):
         try:
             os.makedirs(path)
@@ -312,11 +319,14 @@ class ClangTidyLocalCache(object):
             else:
                 raise
 
+    # --------------------------------------------------------------------------
     def _make_path(self, digest):
         return os.path.join(self._opts.cache_dir, digest[:2], digest[2:])
 
 
+# ------------------------------------------------------------------------------
 class ClangTidyS3Cache(object):
+    # --------------------------------------------------------------------------
     def __init__(self, log, opts):
         from boto3 import client
         from botocore.exceptions import ClientError
@@ -327,6 +337,7 @@ class ClangTidyS3Cache(object):
         self._bucket = opts.s3_bucket()
         self._bucket_folder = opts.s3_bucket_folder()
 
+    # --------------------------------------------------------------------------
     def is_cached(self, digest):
         try:
             path = self._make_path(digest)
@@ -341,6 +352,7 @@ class ClangTidyS3Cache(object):
 
         return True
 
+    # --------------------------------------------------------------------------
     def store_in_cache(self, digest):
         try:
             path = self._make_path(digest)
@@ -349,6 +361,7 @@ class ClangTidyS3Cache(object):
             self._log.error("Error calling S3:put_object {}".format(str(e)))
             raise
 
+    # --------------------------------------------------------------------------
     def _make_path(self, digest):
         return os.path.join(
             self._bucket_folder,
@@ -356,8 +369,9 @@ class ClangTidyS3Cache(object):
             digest[2:]
         )
 
-
+# ------------------------------------------------------------------------------
 class ClangTidyCache(object):
+    # --------------------------------------------------------------------------
     def __init__(self, log, opts):
         self._log = log
         self._opts = opts
@@ -367,6 +381,7 @@ class ClangTidyCache(object):
         self._s3_cache = ClangTidyS3Cache(
             log, opts) if opts.has_s3() else None
 
+    # --------------------------------------------------------------------------
     def is_cached(self, digest):
         if self._local_cache.is_cached(digest):
             return True
@@ -379,6 +394,7 @@ class ClangTidyCache(object):
 
         return False
 
+    # --------------------------------------------------------------------------
     def store_in_cache(self, digest):
         self._local_cache.store_in_cache(digest)
 
@@ -388,6 +404,7 @@ class ClangTidyCache(object):
         if self._s3_cache != None:
             self._s3_cache.store_in_cache(digest)
 
+    # --------------------------------------------------------------------------
     def query_stats(self):
         if self._server_cache is not None:
             return self._server_cache.query_stats()
@@ -398,7 +415,6 @@ class ClangTidyCache(object):
 # ------------------------------------------------------------------------------
 source_file_change_re = re.compile(r'#\s+\d+\s+"([^"]+)".*')
 
-
 def source_file_changed(cpp_line):
     found = source_file_change_re.match(cpp_line)
     if found:
@@ -407,8 +423,6 @@ def source_file_changed(cpp_line):
             return os.path.realpath(os.path.dirname(found_path))
 
 # ------------------------------------------------------------------------------
-
-
 def find_ct_config(search_path):
     while search_path and search_path != "/":
         search_path = os.path.dirname(search_path)
@@ -417,8 +431,6 @@ def find_ct_config(search_path):
             return ct_config
 
 # ------------------------------------------------------------------------------
-
-
 def hash_inputs(opts):
     co_args = opts.compiler_args()
     ct_args = opts.clang_tidy_args()
@@ -470,9 +482,8 @@ def hash_inputs(opts):
         result.update(chunk)
 
     return result.hexdigest()
+
 # ------------------------------------------------------------------------------
-
-
 def print_stats(log, opts):
     def _format_bytes(s):
         if s < 10000:
@@ -524,9 +535,8 @@ def print_stats(log, opts):
             print(label+":", padding, fmtfunc(opts, stats))
         except:
             print(label+":", padding, "N/A")
+
 # ------------------------------------------------------------------------------
-
-
 def run_clang_tidy_cached(log, opts):
     cache = ClangTidyCache(log, opts)
     digest = None
@@ -546,9 +556,8 @@ def run_clang_tidy_cached(log, opts):
             log.error(str(error))
 
     return result
+
 # ------------------------------------------------------------------------------
-
-
 def main():
     log = logging.getLogger(os.path.basename(__file__))
     log.setLevel(logging.WARNING)
@@ -566,7 +575,7 @@ def main():
             return run_clang_tidy_cached(log, opts)
         return 0
     except Exception as error:
-        log.error(str(error))
+        log.error("%s: %s" % (str(type(error)), str(error)))
         return 1
 
 
