@@ -568,8 +568,10 @@ def main():
             print(opts.cache_dir)
         elif opts.should_remove_dir():
             import shutil
-
-            shutil.rmtree(opts.cache_dir)
+            try:
+                shutil.rmtree(opts.cache_dir)
+            except FileNotFoundError:
+                pass
         elif opts.should_print_stats():
             print_stats(log, opts)
         else:
