@@ -253,7 +253,7 @@ class ClangTidyServerCache(object):
             pass
 
     # --------------------------------------------------------------------------
-    def query_stats(self):
+    def query_stats(self, options):
         try:
             query = self._requests.get(self._make_stats_url(), timeout=3)
             if query.status_code == 200:
@@ -406,9 +406,9 @@ class ClangTidyCache(object):
             self._s3_cache.store_in_cache(digest)
 
     # --------------------------------------------------------------------------
-    def query_stats(self):
+    def query_stats(self, options):
         if self._server_cache is not None:
-            return self._server_cache.query_stats()
+            return self._server_cache.query_stats(options)
 
         return {}
 
