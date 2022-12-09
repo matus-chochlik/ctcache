@@ -558,10 +558,11 @@ def run_clang_tidy_cached(log, opts):
         stderr=subprocess.PIPE
     )
     stdout, stderr = proc.communicate()
+    sys.stdout.write(stdout.decode("utf8"))
     sys.stderr.write(stderr.decode("utf8"))
 
     tidy_success = True
-    if proc.returncode != 0 or stderr:
+    if proc.returncode != 0 or stdout:
         tidy_success = False
 
     if tidy_success and digest:
@@ -569,9 +570,6 @@ def run_clang_tidy_cached(log, opts):
             cache.store_in_cache(digest)
         except Exception as error:
             log.error(str(error))
-
-    if proc.returncode == 0 and stderr:
-        return 1
 
     return proc.returncode
 
