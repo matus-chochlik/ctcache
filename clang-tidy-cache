@@ -29,6 +29,10 @@ class ClangTidyCacheOpts(object):
 
         self._strip_list = os.getenv("CTCACHE_STRIP", "").split(':')
 
+        # splits arguments starting with - on the first =
+        args = [arg.split('=', 1) if arg.startswith('-') else arg for arg in args]
+        args = [arg for sub in args for arg in sub]
+
         if args.count("--") == 1:
             # Invoked with compiler args on the actual command line
             i = args.index("--")
@@ -480,6 +484,16 @@ def hash_inputs(opts):
             for line in ct_config.readlines():
                 chunk = opts.adjust_chunk(line)
                 result.update(chunk)
+
+    def _omit_after(args, excl):
+        omit_next = False
+        for arg in args:
+            omit_this = arg in excl
+            if not omit_this and not omit_next:
+                yield arg
+            omit_next = omit_this
+
+    ct_args = list(_omit_after(ct_args, ["-export-fixes"]))
 
     for chunk in sorted(set([opts.adjust_chunk(arg) for arg in co_args[1:]])):
         result.update(chunk)
