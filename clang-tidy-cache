@@ -30,7 +30,7 @@ class ClangTidyCacheOpts(object):
         self._strip_list = os.getenv("CTCACHE_STRIP", "").split(':')
 
         # splits arguments starting with - on the first =
-        args = [arg.split('=', 1) if arg.startswith('-') else arg for arg in args]
+        args = [arg.split('=', 1) if arg.startswith('-') else [arg] for arg in args]
         args = [arg for sub in args for arg in sub]
 
         if args.count("--") == 1:
