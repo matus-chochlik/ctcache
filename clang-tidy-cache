@@ -191,6 +191,10 @@ class ClangTidyCacheOpts(object):
         return int(os.getenv("CTCACHE_PORT", 5000))
 
     # --------------------------------------------------------------------------
+    def ignore_output(self):
+        return "CTCACHE_IGNORE_OUTPUT" in os.environ
+
+    # --------------------------------------------------------------------------
     def debug_enabled(self):
         return "CTCACHE_DEBUG" in os.environ
 
@@ -576,7 +580,10 @@ def run_clang_tidy_cached(log, opts):
     sys.stderr.write(stderr.decode("utf8"))
 
     tidy_success = True
-    if proc.returncode != 0 or stdout:
+    if proc.returncode != 0:
+        tidy_success = False
+
+    if stdout and not opts.ignore_output():
         tidy_success = False
 
     if tidy_success and digest:
