@@ -179,6 +179,10 @@ class ClangTidyCacheOpts(object):
         return os.getenv("CTCACHE_S3_FOLDER", 'clang-tidy-cache')
 
     # --------------------------------------------------------------------------
+    def s3_no_credentials(self):
+        return os.getenv("CTCACHE_S3_NO_CREDENTIALS", "")
+
+    # --------------------------------------------------------------------------
     def has_host(self):
         return os.getenv("CTCACHE_HOST") is not None
 
@@ -343,10 +347,16 @@ class ClangTidyS3Cache(object):
     def __init__(self, log, opts):
         from boto3 import client
         from botocore.exceptions import ClientError
+        from botocore.config import Config
+        from botocore.session import UNSIGNED
+
         self._ClientError = ClientError
         self._log = log
         self._opts = opts
-        self._client = client('s3')
+        if self._opts.s3_no_credentials():
+            self._client = client("s3", config=Config(signature_version=UNSIGNED))
+        else:
+            self._client = client("s3")
         self._bucket = opts.s3_bucket()
         self._bucket_folder = opts.s3_bucket_folder()
 
@@ -367,6 +377,8 @@ class ClangTidyS3Cache(object):
 
     # --------------------------------------------------------------------------
     def store_in_cache(self, digest):
+        if self._opts.s3_no_credentials():
+            return
         try:
             path = self._make_path(digest)
             self._client.put_object(Bucket=self._bucket, Key=path, Body=digest)
