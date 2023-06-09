@@ -818,7 +818,7 @@ def ctc_static_file(file_name):
         return flask.send_from_directory(
             directory=ctcache_app.config["STATIC_FOLDER"],
             path=file_name,
-            filename=file_name,
+            download_name=file_name,
             as_attachment=False
         )
     except FileNotFoundError:
