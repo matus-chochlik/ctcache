@@ -191,6 +191,10 @@ class ClangTidyCacheOpts(object):
         return os.getenv("CTCACHE_HOST", "localhost")
 
     # --------------------------------------------------------------------------
+    def rest_proto(self):
+        return int(os.getenv("CTCACHE_PROTO", "http"))
+
+    # --------------------------------------------------------------------------
     def rest_port(self):
         return int(os.getenv("CTCACHE_PORT", 5000))
 
@@ -283,7 +287,8 @@ class ClangTidyServerCache(object):
 
     # --------------------------------------------------------------------------
     def _make_query_url(self, digest):
-        return "http://%(host)s:%(port)d/is_cached/%(digest)s" % {
+        return "%(proto)s://%(host)s:%(port)d/is_cached/%(digest)s" % {
+            "proto": self._opts.rest_proto(),
             "host": self._opts.rest_host(),
             "port": self._opts.rest_port(),
             "digest": digest
@@ -291,7 +296,8 @@ class ClangTidyServerCache(object):
 
     # --------------------------------------------------------------------------
     def _make_store_url(self, digest):
-        return "http://%(host)s:%(port)d/cache/%(digest)s" % {
+        return "%(proto)s://%(host)s:%(port)d/cache/%(digest)s" % {
+            "proto": self._opts.rest_proto(),
             "host": self._opts.rest_host(),
             "port": self._opts.rest_port(),
             "digest": digest
@@ -299,7 +305,8 @@ class ClangTidyServerCache(object):
 
     # --------------------------------------------------------------------------
     def _make_stats_url(self):
-        return "http://%(host)s:%(port)d/stats" % {
+        return "%(proto)s://%(host)s:%(port)d/stats" % {
+            "proto": self._opts.rest_proto(),
             "host": self._opts.rest_host(),
             "port": self._opts.rest_port()
         }
