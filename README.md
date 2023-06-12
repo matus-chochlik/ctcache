@@ -117,6 +117,7 @@ variables:
 |`CTCACHE_S3_BUCKET`        |  ✓   |      | the S3 bucket to store cache remotely                    |
 |`CTCACHE_S3_FOLDER`        |  ✓   |      | the prefix directory in S3, w/o leading and trailing `/` |
 |`CTCACHE_S3_NO_CREDENTIALS`|  ✓   |      | if set, script won't try to put objects to S3            |
+|`CTCACHE_PROTO`            |  ✓   |      | protocol for connecting to the server                    |
 |`CTCACHE_HOST`             |  ✓   |  ✓   | hostname or IP address of the server                     |
 |`CTCACHE_PORT`             |  ✓   |  ✓   | listening port of the server                             |
 |`CTCACHE_WEBROOT`          |      |  ✓   | directory containin static server files                  |
