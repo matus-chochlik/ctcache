@@ -192,7 +192,7 @@ class ClangTidyCacheOpts(object):
 
     # --------------------------------------------------------------------------
     def rest_proto(self):
-        return int(os.getenv("CTCACHE_PROTO", "http"))
+        return os.getenv("CTCACHE_PROTO", "http")
 
     # --------------------------------------------------------------------------
     def rest_port(self):
@@ -253,6 +253,8 @@ class ClangTidyServerCache(object):
             if query.status_code == 200:
                 if query.json() == True:
                     return True
+                elif query.json() == False:
+                    return False
                 else:
                     self._log.error("is_cached: Can't connect to server {0}, error {1}".format(
                         self._opts.rest_host(), query.status_code))
