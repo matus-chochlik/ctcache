@@ -254,7 +254,7 @@ class ClangTidyServerCache(object):
                 if query.json() == True:
                     return True
                 elif query.json() == False:
-                    return True
+                    return False
                 else:
                     self._log.error("is_cached: Can't connect to server {0}, error {1}".format(
                         self._opts.rest_host(), query.status_code))
