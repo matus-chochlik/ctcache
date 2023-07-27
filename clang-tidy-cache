@@ -16,6 +16,12 @@ import tempfile
 import subprocess
 import json
 import shlex
+import typing as tp
+
+try:
+    import redis
+except ImportError:
+    redis = None
 
 # ------------------------------------------------------------------------------
 class ClangTidyCacheOpts(object):
@@ -210,6 +216,31 @@ class ClangTidyCacheOpts(object):
     def dump_enabled(self):
         return "CTCACHE_DUMP" in os.environ
 
+    # --------------------------------------------------------------------------
+    def has_redis_host(self) -> bool:
+        return "CTCACHE_REDIS_HOST" in os.environ
+
+    # --------------------------------------------------------------------------
+    def redis_host(self) -> str:
+        return os.getenv("CTCACHE_REDIS_HOST", "")
+
+    # --------------------------------------------------------------------------
+    def redis_port(self) -> int:
+        return int(os.getenv("CTCACHE_REDIS_PORT", "6379"))
+
+    # --------------------------------------------------------------------------
+    def redis_username(self) -> str:
+        return os.getenv("CTCACHE_REDIS_USERNAME", "")
+
+    # --------------------------------------------------------------------------
+    def redis_password(self) -> str:
+        return os.getenv("CTCACHE_REDIS_PASSWORD", "")
+
+    # --------------------------------------------------------------------------
+    def redis_namespace(self) -> str:
+        return os.getenv("CTCACHE_REDIS_NAMESPACE", "ctcache/")
+
+
 # ------------------------------------------------------------------------------
 class ClangTidyCacheHash(object):
     # --------------------------------------------------------------------------
@@ -350,6 +381,30 @@ class ClangTidyLocalCache(object):
         return os.path.join(self._opts.cache_dir, digest[:2], digest[2:])
 
 
+class ClangTidyRedisCache(object):
+    def __init__(self, log, opts: ClangTidyCacheOpts):
+        self._log = log
+        self._opts = opts
+        assert redis
+        self._cli = redis.Redis(
+            host=opts.redis_host(),
+            port=opts.redis_port(),
+            username=opts.redis_username(),
+            password=opts.redis_password(),
+        )
+        self._namespace = opts.redis_namespace()
+
+    def _get_key_from_digest(self, digest) -> str:
+        return self._namespace + digest
+
+    def is_cached(self, digest) -> bool:
+        n_digest = self._get_key_from_digest(digest)
+        return self._cli.get(n_digest) is not None
+
+    def store_in_cache(self, digest):
+        n_digest = self._get_key_from_digest(digest)
+        self._cli.set(n_digest, "")
+
 # ------------------------------------------------------------------------------
 class ClangTidyS3Cache(object):
     # --------------------------------------------------------------------------
@@ -406,10 +461,12 @@ class ClangTidyS3Cache(object):
 # ------------------------------------------------------------------------------
 class ClangTidyCache(object):
     # --------------------------------------------------------------------------
-    def __init__(self, log, opts):
+    def __init__(self, log, opts: ClangTidyCacheOpts):
         self._log = log
         self._opts = opts
         self._local_cache = ClangTidyLocalCache(log, opts)
+        self._redis_cache = ClangTidyRedisCache(
+            log, opts) if opts.has_redis_host() and redis else None
         self._server_cache = ClangTidyServerCache(
             log, opts) if opts.has_host() else None
         self._s3_cache = ClangTidyS3Cache(
@@ -426,6 +483,9 @@ class ClangTidyCache(object):
         if self._s3_cache != None and self._s3_cache.is_cached(digest):
             return True
 
+        if self._redis_cache is not None and self._redis_cache.is_cached(digest):
+            return True
+
         return False
 
     # --------------------------------------------------------------------------
@@ -437,6 +497,9 @@ class ClangTidyCache(object):
 
         if self._s3_cache != None:
             self._s3_cache.store_in_cache(digest)
+
+        if self._redis_cache is not None:
+            self._redis_cache.store_in_cache(digest)
 
     # --------------------------------------------------------------------------
     def query_stats(self, options):
