@@ -16,6 +16,12 @@ import tempfile
 import subprocess
 import json
 import shlex
+import typing as tp
+
+try:
+    import redis
+except ImportError:
+    redis = None
 
 # ------------------------------------------------------------------------------
 class ClangTidyCacheOpts(object):
@@ -199,8 +205,12 @@ class ClangTidyCacheOpts(object):
         return int(os.getenv("CTCACHE_PORT", 5000))
 
     # --------------------------------------------------------------------------
-    def ignore_output(self):
-        return "CTCACHE_IGNORE_OUTPUT" in os.environ
+    def save_output(self) -> bool:
+        return os.getenv("CTCACHE_SAVE_OUTPUT", "1") == "1"
+
+    # --------------------------------------------------------------------------
+    def ignore_output(self) -> bool:
+        return self.save_output() or "CTCACHE_IGNORE_OUTPUT" in os.environ
 
     # --------------------------------------------------------------------------
     def debug_enabled(self):
@@ -209,6 +219,31 @@ class ClangTidyCacheOpts(object):
     # --------------------------------------------------------------------------
     def dump_enabled(self):
         return "CTCACHE_DUMP" in os.environ
+
+    # --------------------------------------------------------------------------
+    def has_redis_host(self) -> bool:
+        return "CTCACHE_REDIS_HOST" in os.environ
+
+    # --------------------------------------------------------------------------
+    def redis_host(self) -> str:
+        return os.getenv("CTCACHE_REDIS_HOST", "")
+
+    # --------------------------------------------------------------------------
+    def redis_port(self) -> int:
+        return int(os.getenv("CTCACHE_REDIS_PORT", "6379"))
+
+    # --------------------------------------------------------------------------
+    def redis_username(self) -> str:
+        return os.getenv("CTCACHE_REDIS_USERNAME", "")
+
+    # --------------------------------------------------------------------------
+    def redis_password(self) -> str:
+        return os.getenv("CTCACHE_REDIS_PASSWORD", "")
+
+    # --------------------------------------------------------------------------
+    def redis_namespace(self) -> str:
+        return os.getenv("CTCACHE_REDIS_NAMESPACE", "ctcache/")
+
 
 # ------------------------------------------------------------------------------
 class ClangTidyCacheHash(object):
@@ -330,10 +365,27 @@ class ClangTidyLocalCache(object):
         return False
 
     # --------------------------------------------------------------------------
+    def get_cache_data(self, digest) -> tp.Optional[bytes]:
+        path = self._make_path(digest)
+        if os.path.isfile(path):
+            os.utime(path, None)
+            with open(path, "rb") as stream:
+                return stream.read()
+        else:
+            return None
+
+    # --------------------------------------------------------------------------
     def store_in_cache(self, digest):
         p = self._make_path(digest)
         self._mkdir_p(os.path.dirname(p))
         open(p, "w").close()
+
+    # --------------------------------------------------------------------------
+    def store_in_cache_with_data(self, digest, data: bytes):
+        p = self._make_path(digest)
+        self._mkdir_p(os.path.dirname(p))
+        with open(p, "wb") as stream:
+            stream.write(data)
 
     # --------------------------------------------------------------------------
     def _mkdir_p(self, path):
@@ -349,6 +401,38 @@ class ClangTidyLocalCache(object):
     def _make_path(self, digest):
         return os.path.join(self._opts.cache_dir, digest[:2], digest[2:])
 
+
+class ClangTidyRedisCache(object):
+    def __init__(self, log, opts: ClangTidyCacheOpts):
+        self._log = log
+        self._opts = opts
+        assert redis
+        self._cli = redis.Redis(
+            host=opts.redis_host(),
+            port=opts.redis_port(),
+            username=opts.redis_username(),
+            password=opts.redis_password(),
+        )
+        self._namespace = opts.redis_namespace()
+
+    def _get_key_from_digest(self, digest) -> str:
+        return self._namespace + digest
+
+    def is_cached(self, digest) -> bool:
+        n_digest = self._get_key_from_digest(digest)
+        return self._cli.get(n_digest) is not None
+
+    def get_cache_data(self, digest) -> tp.Optional[bytes]:
+        n_digest = self._get_key_from_digest(digest)
+        return self._cli.get(n_digest)
+
+    def store_in_cache(self, digest):
+        n_digest = self._get_key_from_digest(digest)
+        self._cli.set(n_digest, "")
+
+    def store_in_cache_with_data(self, digest, data: bytes):
+        n_digest = self._get_key_from_digest(digest)
+        self._cli.set(n_digest, data)
 
 # ------------------------------------------------------------------------------
 class ClangTidyS3Cache(object):
@@ -406,10 +490,12 @@ class ClangTidyS3Cache(object):
 # ------------------------------------------------------------------------------
 class ClangTidyCache(object):
     # --------------------------------------------------------------------------
-    def __init__(self, log, opts):
+    def __init__(self, log, opts: ClangTidyCacheOpts):
         self._log = log
         self._opts = opts
         self._local_cache = ClangTidyLocalCache(log, opts)
+        self._redis_cache = ClangTidyRedisCache(
+            log, opts) if opts.has_redis_host() and redis else None
         self._server_cache = ClangTidyServerCache(
             log, opts) if opts.has_host() else None
         self._s3_cache = ClangTidyS3Cache(
@@ -426,7 +512,19 @@ class ClangTidyCache(object):
         if self._s3_cache != None and self._s3_cache.is_cached(digest):
             return True
 
+        if self._redis_cache is not None and self._redis_cache.is_cached(digest):
+            return True
+
         return False
+
+    # --------------------------------------------------------------------------
+    def get_cache_data(self, digest) -> tp.Optional[bytes]:
+        data = self._local_cache.get_cache_data(digest)
+        if data is None and self._redis_cache is not None:
+            data = self._redis_cache.get_cache_data(digest)
+
+        # TODO: add support for stdout storage for server cache and s3 cache
+        return data
 
     # --------------------------------------------------------------------------
     def store_in_cache(self, digest):
@@ -437,6 +535,18 @@ class ClangTidyCache(object):
 
         if self._s3_cache != None:
             self._s3_cache.store_in_cache(digest)
+
+        if self._redis_cache is not None:
+            self._redis_cache.store_in_cache(digest)
+
+    # --------------------------------------------------------------------------
+    def store_in_cache_with_data(self, digest, data: bytes):
+        self._local_cache.store_in_cache_with_data(digest, data)
+
+        if self._redis_cache is not None:
+            self._redis_cache.store_in_cache_with_data(digest, data)
+
+        # TODO: add support for stdout storage for server cache and s3 cache
 
     # --------------------------------------------------------------------------
     def query_stats(self, options):
@@ -586,8 +696,15 @@ def run_clang_tidy_cached(log, opts):
     digest = None
     try:
         digest = hash_inputs(opts)
-        if digest and cache.is_cached(digest):
+        if digest and opts.save_output():
+            data = cache.get_cache_data(digest)
+            if data is not None:
+                sys.stdout.write(data.decode("utf8"))
+                return 0
+        elif digest and cache.is_cached(digest):
             return 0
+        else:
+            pass
     except Exception as error:
         log.error(str(error))
 
@@ -609,7 +726,10 @@ def run_clang_tidy_cached(log, opts):
 
     if tidy_success and digest:
         try:
-            cache.store_in_cache(digest)
+            if opts.save_output():
+                cache.store_in_cache_with_data(digest, stdout)
+            else:
+                cache.store_in_cache(digest)
         except Exception as error:
             log.error(str(error))
 
