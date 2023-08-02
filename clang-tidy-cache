@@ -222,6 +222,22 @@ class ClangTidyCacheOpts(object):
         return os.getenv("CTCACHE_S3_NO_CREDENTIALS", "")
 
     # --------------------------------------------------------------------------
+    def has_gcs(self):
+        return "CTCACHE_GCS_BUCKET" in os.environ
+
+    # --------------------------------------------------------------------------
+    def gcs_bucket(self):
+        return os.getenv("CTCACHE_GCS_BUCKET")
+
+    # --------------------------------------------------------------------------
+    def gcs_bucket_folder(self):
+        return os.getenv("CTCACHE_GCS_FOLDER", 'clang-tidy-cache')
+
+    # --------------------------------------------------------------------------
+    def gcs_no_credentials(self):
+        return os.getenv("CTCACHE_GCS_NO_CREDENTIALS", None)
+
+    # --------------------------------------------------------------------------
     def has_host(self):
         return os.getenv("CTCACHE_HOST") is not None
 
@@ -521,6 +537,71 @@ class ClangTidyS3Cache(object):
         )
 
 # ------------------------------------------------------------------------------
+class ClangTidyGcsCache(object):
+    def __init__(self, log, opts):
+        import google.cloud.storage as gcs
+
+        self._log = log
+        self._opts = opts
+        if self._opts.gcs_no_credentials():
+            self._client = gcs.Client.create_anonymous_client()
+        else:
+            self._client = gcs.Client()
+        self._bucket = self._client.bucket(opts.gcs_bucket())
+        self._bucket_folder = opts.gcs_bucket_folder()
+
+    def is_cached(self, digest):
+        try:
+            path = self._make_path(digest)
+            blob = self._bucket.blob(path)
+            t = blob.exists()
+            return t
+        except Exception as e:
+            self._log.error(
+                "Error calling GCS:blob.exists {}".format(str(e)))
+            raise
+
+    def store_in_cache(self, digest):
+        if self._opts.gcs_no_credentials():
+            return
+        try:
+            path = self._make_path(digest)
+            blob = self._bucket.blob(path)
+            blob.upload_from_string(digest)
+        except Exception as e:
+            self._log.error(
+                "Error calling GCS:blob.upload_from_string {}".format(str(e)))
+            raise
+
+    def get_cache_data(self, digest) -> tp.Optional[bytes]:
+        try:
+            path = self._make_path(digest)
+            blob = self._bucket.blob(path)
+            return blob.download_as_bytes()
+        except Exception as e:
+            return None
+
+    def store_in_cache_with_data(self, digest, data: bytes):
+        if self._opts.gcs_no_credentials():
+            return
+        try:
+            path = self._make_path(digest)
+            blob = self._bucket.blob(path)
+            blob.upload_from_string(data, content_type="application/octet-stream")
+        except Exception as e:
+            self._log.error(
+                "Error calling GCS:blob.upload_from_string {}".format(str(e)))
+            raise
+
+    def _make_path(self, digest):
+        return os.path.join(
+            self._bucket_folder,
+            digest[:2],
+            digest[2:]
+        )
+
+
+# ------------------------------------------------------------------------------
 class ClangTidyCache(object):
     # --------------------------------------------------------------------------
     def __init__(self, log, opts: ClangTidyCacheOpts):
@@ -533,6 +614,8 @@ class ClangTidyCache(object):
             log, opts) if opts.has_host() else None
         self._s3_cache = ClangTidyS3Cache(
             log, opts) if opts.has_s3() else None
+        self._gcs_cache = ClangTidyGcsCache(
+            log, opts) if opts.has_gcs() else None
 
     # --------------------------------------------------------------------------
     def is_cached(self, digest):
@@ -545,6 +628,9 @@ class ClangTidyCache(object):
         if self._s3_cache != None and self._s3_cache.is_cached(digest):
             return True
 
+        if self._gcs_cache is not None and self._gcs_cache.is_cached(digest):
+            return True
+
         if self._redis_cache is not None and self._redis_cache.is_cached(digest):
             return True
 
@@ -553,6 +639,10 @@ class ClangTidyCache(object):
     # --------------------------------------------------------------------------
     def get_cache_data(self, digest) -> tp.Optional[bytes]:
         data = self._local_cache.get_cache_data(digest)
+
+        if data is None and self._gcs_cache is not None:
+            data = self._gcs_cache.get_cache_data(digest)
+
         if data is None and self._redis_cache is not None:
             data = self._redis_cache.get_cache_data(digest)
 
@@ -569,12 +659,18 @@ class ClangTidyCache(object):
         if self._s3_cache != None:
             self._s3_cache.store_in_cache(digest)
 
+        if self._gcs_cache is not None:
+            self._gcs_cache.store_in_cache(digest)
+
         if self._redis_cache is not None:
             self._redis_cache.store_in_cache(digest)
 
     # --------------------------------------------------------------------------
     def store_in_cache_with_data(self, digest, data: bytes):
         self._local_cache.store_in_cache_with_data(digest, data)
+
+        if self._gcs_cache is not None:
+            self._gcs_cache.store_in_cache_with_data(digest, data)
 
         if self._redis_cache is not None:
             self._redis_cache.store_in_cache_with_data(digest, data)
