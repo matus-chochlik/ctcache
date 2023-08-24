@@ -27,6 +27,8 @@ except ImportError:
 class ClangTidyCacheOpts(object):
     # --------------------------------------------------------------------------
     def __init__(self, log, args):
+        self._directories_with_clang_tidy = []
+        
         # Define the prefix used to identify directories with clang-tidy
         prefix = '--directories_with_clang_tidy='
 
@@ -629,7 +631,7 @@ def hash_inputs(opts):
     #=========== Config Contents ==================================================#
 
     config_directories = opts.directories_with_clang_tidy()
-
+    
     ct_config_paths = set()
 
     for directory in config_directories:
