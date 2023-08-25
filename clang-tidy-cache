@@ -27,6 +27,24 @@ except ImportError:
 class ClangTidyCacheOpts(object):
     # --------------------------------------------------------------------------
     def __init__(self, log, args):
+        self._directories_with_clang_tidy = []
+        
+        # Define the prefix used to identify directories with clang-tidy
+        prefix = '--directories_with_clang_tidy='
+
+        # Iterate through the command line arguments
+        for index, arg in enumerate(args):
+            if arg.startswith(prefix):
+                # Split the argument using '*' as a separator to get a list of directories, I
+                # used '*' because a folder cannot contain this character in its name whereas
+                # it can contain `,`
+                self._directories_with_clang_tidy = arg[len(prefix):].split('*')
+
+                # Remove the argument because clang-tidy will not like it
+                args.pop(index)
+
+                break
+
         self._original_args = args
         self._clang_tidy_args = []
         self._compiler_args = []
@@ -125,6 +143,10 @@ class ClangTidyCacheOpts(object):
             return self._original_args[0] == "--clean"
         except IndexError:
             return False
+
+    # --------------------------------------------------------------------------
+    def directories_with_clang_tidy(self):
+        return self._directories_with_clang_tidy
 
     # --------------------------------------------------------------------------
     def original_args(self):
@@ -576,9 +598,10 @@ def find_ct_config(search_path):
 
 # ------------------------------------------------------------------------------
 def hash_inputs(opts):
-    co_args = opts.compiler_args()
     ct_args = opts.clang_tidy_args()
-    if not co_args and not ct_args:
+    co_args = opts.compiler_args()
+
+    if not ct_args and not co_args:
         return None
 
     if len(co_args) == 0:
@@ -586,39 +609,45 @@ def hash_inputs(opts):
 
     result = ClangTidyCacheHash(opts)
 
-    proc = subprocess.Popen(
-        co_args,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE
-    )
-    stdout, stderr = proc.communicate()
-    if stderr:
+    #==== Source File Modification Time ===========================================#
+
+    source_file_extensions = [".cpp", ".c", ".h", ".hpp", ".cxx"]
+
+    # Find the first valid source file in ct_args
+    for line in ct_args[1:]:
+        if os.path.exists(line) and any(line.lower().endswith(ext) for ext in source_file_extensions):
+            source_file = os.path.normpath(os.path.realpath(line))
+            break
+
+    # Calculate a timestamp-based hash using the modification time of each source file
+    try:
+        mtime = os.path.getmtime(source_file)
+        timestamp_hash = str(int(mtime))
+
+        result.update(timestamp_hash.encode("utf8"))
+    except OSError:
         return None
 
-    src_to_ct_config = dict()
+    #=========== Config Contents ==================================================#
+
+    config_directories = opts.directories_with_clang_tidy()
+    
     ct_config_paths = set()
 
-    for line in stdout.splitlines():
-        line = line.decode("utf8")
-        search_path = source_file_changed(line)
-        if search_path:
-            try:
-                ct_config_path = src_to_ct_config[search_path]
-            except KeyError:
-                ct_config_path = find_ct_config(search_path)
-                src_to_ct_config[search_path] = ct_config_path
+    for directory in config_directories:
+        directory = os.path.normpath(directory.strip())  # Normalize and remove whitespace
+        common_path = os.path.commonpath([source_file, directory])
 
-            if ct_config_path:
-                ct_config_paths.add(ct_config_path)
+        if common_path == directory:
+            ct_config_paths.add(os.path.join(directory, '.clang-tidy'))
 
-        chunk = opts.adjust_chunk(line)
-        result.update(chunk)
-
-    for ct_config_path in sorted(ct_config_paths):
-        with open(ct_config_path, "rt") as ct_config:
-            for line in ct_config.readlines():
+    for ct_config in sorted(ct_config_paths):
+        with open(ct_config, "rt") as ct_config:
+            for line in ct_config:
                 chunk = opts.adjust_chunk(line)
                 result.update(chunk)
+
+    #==== Clang-Tidy and Compiler Args ============================================#
 
     def _omit_after(args, excl):
         omit_next = False
@@ -630,9 +659,10 @@ def hash_inputs(opts):
 
     ct_args = list(_omit_after(ct_args, ["-export-fixes"]))
 
-    for chunk in sorted(set([opts.adjust_chunk(arg) for arg in co_args[1:]])):
-        result.update(chunk)
     for chunk in sorted(set([opts.adjust_chunk(arg) for arg in ct_args[1:]])):
+        result.update(chunk)
+
+    for chunk in sorted(set([opts.adjust_chunk(arg) for arg in co_args[1:]])):
         result.update(chunk)
 
     return result.hexdigest()
