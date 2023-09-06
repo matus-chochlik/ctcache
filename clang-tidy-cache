@@ -92,6 +92,9 @@ class ClangTidyCacheOpts(object):
                     self._compiler_args[i] = "-"
                 if self._compiler_args[i-1] in ["-c"]:
                     self._compiler_args[i-1] = "-E"
+            for i in range(1, len(self._compiler_args)):
+                if self._compiler_args[i-1] in ["-E"]:
+                    self._compiler_args.insert(i, "-P")
 
     # --------------------------------------------------------------------------
     def _load_compile_command_db(self, filename):
@@ -612,6 +615,20 @@ def hash_inputs(opts):
 
     result = ClangTidyCacheHash(opts)
 
+    # Execute the compiler command defined by the compiler arguments. At this
+    # point if we have compiler arguments with expect that it defines a valid
+    # command to get the preprocess output.
+    # If we have a valid output this gets added to the hash.
+    proc = subprocess.Popen(
+        co_args,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE
+    )
+    stdout, stderr = proc.communicate()
+    if stderr:
+        return None
+    result.update(stdout)
+
     #==== Source File Modification Time ===========================================#
 
     source_file_extensions = [".cpp", ".c", ".h", ".hpp", ".cxx"]
@@ -621,15 +638,6 @@ def hash_inputs(opts):
         if os.path.exists(line) and any(line.lower().endswith(ext) for ext in source_file_extensions):
             source_file = os.path.normpath(os.path.realpath(line))
             break
-
-    # Calculate a timestamp-based hash using the modification time of each source file
-    try:
-        mtime = os.path.getmtime(source_file)
-        timestamp_hash = str(int(mtime))
-
-        result.update(timestamp_hash.encode("utf8"))
-    except OSError:
-        return None
 
     #=========== Config Contents ==================================================#
 
