@@ -100,7 +100,8 @@ class ClangTidyCacheOpts(object):
     def _load_compile_command_db(self, filename):
         try:
             f = open(filename)
-            self._compile_commands_db = json.load(f)
+            self._compile_commands_db = json.loads(f.read().replace("\\",
+                                                                    "\\\\"))
             f.close()
         except Exception:
             return False
