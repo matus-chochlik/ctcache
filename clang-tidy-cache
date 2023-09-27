@@ -105,7 +105,7 @@ class ClangTidyCacheOpts(object):
         try:
             with open(filename) as f:
                 js = f.read().replace(r'\\\"', "'").replace("\\", "\\\\")
-                self._compile_commands_db = json.loads(j)
+                self._compile_commands_db = json.loads(js)
         except Exception as err:
             self._log.error("Loading compile command DB failed: {0}".format(repr(err)))
             return False
