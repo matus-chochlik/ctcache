@@ -27,6 +27,7 @@ except ImportError:
 class ClangTidyCacheOpts(object):
     # --------------------------------------------------------------------------
     def __init__(self, log, args):
+        self._log = log
         self._directories_with_clang_tidy = []
         
         # Define the prefix used to identify directories with clang-tidy
@@ -44,6 +45,9 @@ class ClangTidyCacheOpts(object):
                 args.pop(index)
 
                 break
+
+        if len(args) < 1:
+            self._log.error("Missing arguments")
 
         self._original_args = args
         self._clang_tidy_args = []
@@ -99,11 +103,11 @@ class ClangTidyCacheOpts(object):
     # --------------------------------------------------------------------------
     def _load_compile_command_db(self, filename):
         try:
-            f = open(filename)
-            self._compile_commands_db = json.loads(f.read().replace("\\",
-                                                                    "\\\\"))
-            f.close()
-        except Exception:
+            with open(filename) as f:
+                js = f.read().replace(r'\\\"', "'").replace("\\", "\\\\")
+                self._compile_commands_db = json.loads(j)
+        except Exception as err:
+            self._log.error("Loading compile command DB failed: {0}".format(repr(err)))
             return False
 
     # --------------------------------------------------------------------------
