@@ -239,7 +239,7 @@ class ClangTidyCacheOpts(object):
 
     # --------------------------------------------------------------------------
     def save_output(self) -> bool:
-        return os.getenv("CTCACHE_SAVE_OUTPUT", "1") == "1"
+        return os.getenv("CTCACHE_SAVE_OUTPUT", "0") == "1"
 
     # --------------------------------------------------------------------------
     def ignore_output(self) -> bool:
