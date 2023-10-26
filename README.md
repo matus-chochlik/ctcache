@@ -106,21 +106,24 @@ docker run -p "80:5000" -v "ctcache:/var/lib/ctcache" -it --rm --name ctcache ct
 The client and server can be configured by setting the following environment
 variables:
 
-|      variable             |client|server|                description                               |
-|---------------------------|:----:|:----:|----------------------------------------------------------|
-|`CTCACHE_CLANG_TIDY`       |  ✓   |      | path to the `clang-tidy` executable                      |
-|`CTCACHE_DISABLE`          |  ✓   |      | disables cache, always runs `clang-tidy`                 |
-|`CTCACHE_SKIP`             |  ✓   |      | disables analysis altogether, returns OK                 |
-|`CTCACHE_STRIP`            |  ✓   |      | list of strings stripped from inputs                     |
-|`CTCACHE_DUMP`             |  ✓   |      | dumps all hash inputs into a file                        |
-|`CTCACHE_DIR`              |  ✓   |      | the cache storage directory in local mode                |
-|`CTCACHE_S3_BUCKET`        |  ✓   |      | the S3 bucket to store cache remotely                    |
-|`CTCACHE_S3_FOLDER`        |  ✓   |      | the prefix directory in S3, w/o leading and trailing `/` |
-|`CTCACHE_S3_NO_CREDENTIALS`|  ✓   |      | if set, script won't try to put objects to S3            |
-|`CTCACHE_PROTO`            |  ✓   |      | protocol for connecting to the server                    |
-|`CTCACHE_HOST`             |  ✓   |  ✓   | hostname or IP address of the server                     |
-|`CTCACHE_PORT`             |  ✓   |  ✓   | listening port of the server                             |
-|`CTCACHE_WEBROOT`          |      |  ✓   | directory containin static server files                  |
+|       variable             |client|server|                description                               |
+|----------------------------|:----:|:----:|----------------------------------------------------------|
+|`CTCACHE_CLANG_TIDY`        |  ✓   |      | path to the `clang-tidy` executable                      |
+|`CTCACHE_DISABLE`           |  ✓   |      | disables cache, always runs `clang-tidy`                 |
+|`CTCACHE_SKIP`              |  ✓   |      | disables analysis altogether, returns OK                 |
+|`CTCACHE_STRIP`             |  ✓   |      | list of strings stripped from inputs                     |
+|`CTCACHE_DUMP`              |  ✓   |      | dumps all hash inputs into a file                        |
+|`CTCACHE_DIR`               |  ✓   |      | the cache storage directory in local mode                |
+|`CTCACHE_S3_BUCKET`         |  ✓   |      | the S3 bucket to store cache remotely                    |
+|`CTCACHE_S3_FOLDER`         |  ✓   |      | the prefix directory in S3, w/o leading and trailing `/` |
+|`CTCACHE_S3_NO_CREDENTIALS` |  ✓   |      | if set, script won't try to put objects to S3            |
+|`CTCACHE_PROTO`             |  ✓   |      | protocol for connecting to the server                    |
+|`CTCACHE_HOST`              |  ✓   |  ✓   | hostname or IP address of the server                     |
+|`CTCACHE_PORT`              |  ✓   |  ✓   | listening port of the server                             |
+|`CTCACHE_WEBROOT`           |      |  ✓   | directory containin static server files                  |
+|`CTCACHE_GCS_BUCKET`        |  ✓   |      | the Google Cloud Storage bucket to store cache remotely  |
+|`CTCACHE_GCS_FOLDER`        |  ✓   |      | the prefix in GCS, w/o leading and trailing `/`          |
+|`CTCACHE_GCS_NO_CREDENTIALS`|  ✓   |      | if set, script won't try to put objects to GCS           |
 
 
 ### The dashboard
