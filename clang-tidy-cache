@@ -16,6 +16,9 @@ import tempfile
 import subprocess
 import json
 import shlex
+import sys
+import time
+import traceback
 import typing as tp
 
 try:
@@ -152,6 +155,13 @@ class ClangTidyCacheOpts(object):
     def should_remove_dir(self):
         try:
             return self._original_args[0] == "--clean"
+        except IndexError:
+            return False
+
+    # --------------------------------------------------------------------------
+    def should_zero_stats(self):
+        try:
+            return self._original_args[0] == "--zero-stats"
         except IndexError:
             return False
 
@@ -372,6 +382,11 @@ class ClangTidyServerCache(object):
         return {}
 
     # --------------------------------------------------------------------------
+    def zero_stats(self, options):
+        # Not implemented
+        pass
+
+    # --------------------------------------------------------------------------
     def _make_query_url(self, digest):
         return "%(proto)s://%(host)s:%(port)d/is_cached/%(digest)s" % {
             "proto": self._opts.rest_proto(),
@@ -397,8 +412,89 @@ class ClangTidyServerCache(object):
             "port": self._opts.rest_port()
         }
 
+class FileLock:
+    DEFAULT_TIMEOUT = 3  # seconds
+
+    def __init__(self, lockfile, timeout=DEFAULT_TIMEOUT):
+        self.lockfile = os.path.abspath(os.path.expanduser(lockfile))
+        self.timeout = timeout
+        self.lock_handle = None
+
+    def acquire(self):
+        start_time = time.time()
+        while True:
+            try:
+                # Attempt to create the lock file exclusively
+                self.lock_handle = os.open(self.lockfile, os.O_CREAT | os.O_EXCL)
+                return self
+            except FileExistsError:
+                # File is locked, check if the timeout has been exceeded
+                if time.time() - start_time > self.timeout:
+                    msg = f"Timeout ({self.timeout} seconds) exceeded while acquiring lock."
+                    print(msg)
+                    raise RuntimeError(msg)
+                # Wait and try again
+                time.sleep(0.1)
+            except FileNotFoundError:
+                # The path to the lock file doesn't exist, create it and retry
+                os.makedirs(os.path.dirname(self.lockfile), exist_ok=True)
+
+    def release(self):
+        if self.lock_handle is not None:
+            try:
+                os.unlink(self.lockfile)  # Remove the lock file upon release
+            except OSError:
+                pass  # Ignore errors if the file doesn't exist or has already been released
+            finally:
+                self.lock_handle = None
+
+    def __enter__(self):
+        return self.acquire()
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        self.release()
+
 # ------------------------------------------------------------------------------
 class ClangTidyLocalCache(object):
+    # --------------------------------------------------------------------------
+    def stats_file(self):
+        return os.path.join(self._opts.cache_dir, "stats")
+
+    # --------------------------------------------------------------------------
+    def read_stats(self):
+        with FileLock(self.stats_file() + ".lock") as _:
+            if os.path.isfile(self.stats_file()):
+                with open(self.stats_file(), 'r') as f:
+                    content = f.read().split()
+                    if len(content) == 2:
+                        return int(content[0]), int(content[1])
+                    else:
+                        print(f"Invalid stats content in: {self.stats_file()}")
+            return 0,0
+
+    # --------------------------------------------------------------------------
+    def update_stats(self, hit):
+        try:
+            hits, misses = self.read_stats()
+            with FileLock(self.stats_file() + ".lock") as _:
+                if hit:
+                    hits += 1
+                else:
+                    misses += 1
+                try:
+                    with open(self.stats_file(), 'w') as fh:
+                        fh.write(f"{hits} {misses}\n")
+                except IOError as e:
+                    print(f"Error writing to file: {e}")
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+            raise
+
+    # --------------------------------------------------------------------------
+    def zero_stats(self):
+        if os.path.exists(self.stats_file()):
+            os.unlink(self.stats_file())
+
     # --------------------------------------------------------------------------
     def __init__(self, log, opts):
         self._log = log
@@ -409,8 +505,10 @@ class ClangTidyLocalCache(object):
         path = self._make_path(digest)
         if os.path.isfile(path):
             os.utime(path, None)
+            self.update_stats(True)
             return True
 
+        self.update_stats(False)
         return False
 
     # --------------------------------------------------------------------------
@@ -682,8 +780,29 @@ class ClangTidyCache(object):
         if self._server_cache is not None:
             return self._server_cache.query_stats(options)
 
-        return {}
+        hits, misses = self._local_cache.read_stats()
+        total = hits + misses
 
+        hash_regex = re.compile(r'^[0-9a-f]{38}$')
+        hash_count = 0
+        for root, dirs, files in os.walk(options.cache_dir):
+            for filename in files:
+                if hash_regex.match(filename):
+                    hash_count += 1
+
+        return {
+            "hit_count": hits,
+            "miss_count": misses,
+            "hit_rate": hits/total if total else 0,
+            "miss_rate": misses/total if total else 0,
+            "cached_count": hash_count}
+
+    # --------------------------------------------------------------------------
+    def zero_stats(self, options):
+        if self._server_cache is not None:
+            return self._server_cache.zero_stats(options)
+
+        self._local_cache.zero_stats()
 
 # ------------------------------------------------------------------------------
 source_file_change_re = re.compile(r'#\s+\d+\s+"([^"]+)".*')
@@ -833,6 +952,11 @@ def print_stats(log, opts):
             print(label+":", padding, "N/A")
 
 # ------------------------------------------------------------------------------
+def zero_stats(log, opts):
+    cache = ClangTidyCache(log, opts)
+    cache.zero_stats(opts)
+
+# ------------------------------------------------------------------------------
 def run_clang_tidy_cached(log, opts):
     cache = ClangTidyCache(log, opts)
     digest = None
@@ -895,6 +1019,8 @@ def main():
                 pass
         elif opts.should_print_stats():
             print_stats(log, opts)
+        elif opts.should_zero_stats():
+            zero_stats(log, opts)
         else:
             return run_clang_tidy_cached(log, opts)
         return 0
