@@ -280,6 +280,10 @@ class ClangTidyCacheOpts(object):
         return "CTCACHE_DUMP" in os.environ
 
     # --------------------------------------------------------------------------
+    def dump_dir(self):
+        return os.getenv("CTCACHE_DUMP_DIR", tempfile.gettempdir())
+
+    # --------------------------------------------------------------------------
     def has_redis_host(self) -> bool:
         return "CTCACHE_REDIS_HOST" in os.environ
 
@@ -308,7 +312,7 @@ class ClangTidyCacheOpts(object):
 class ClangTidyCacheHash(object):
     # --------------------------------------------------------------------------
     def _opendump(self, opts):
-        return open(os.path.join(tempfile.gettempdir(), "ctcache.dump"), "ab")
+        return open(os.path.join(opts.dump_dir(), "ctcache.dump"), "ab")
 
     # --------------------------------------------------------------------------
     def __init__(self, opts):
