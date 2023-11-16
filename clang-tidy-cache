@@ -284,6 +284,10 @@ class ClangTidyCacheOpts(object):
         return os.getenv("CTCACHE_DUMP_DIR", tempfile.gettempdir())
 
     # --------------------------------------------------------------------------
+    def exclude_hash_regex(self):
+        return os.getenv("CTCACHE_EXCLUDE_HASH_REGEX", "")
+
+    # --------------------------------------------------------------------------
     def has_redis_host(self) -> bool:
         return "CTCACHE_REDIS_HOST" in os.environ
 
@@ -895,10 +899,12 @@ def hash_inputs(opts):
     ct_args = list(_omit_after(ct_args, ["-export-fixes"]))
 
     for chunk in sorted(set([opts.adjust_chunk(arg) for arg in ct_args[1:]])):
-        result.update(chunk)
+        if not opts.exclude_hash_regex() or not re.match(opts.exclude_hash_regex(), chunk.decode("utf8")):
+            result.update(chunk)
 
     for chunk in sorted(set([opts.adjust_chunk(arg) for arg in co_args[1:]])):
-        result.update(chunk)
+        if not opts.exclude_hash_regex() or not re.match(opts.exclude_hash_regex(), chunk.decode("utf8")):
+            result.update(chunk)
 
     return result.hexdigest()
 
