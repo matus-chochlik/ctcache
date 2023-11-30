@@ -524,9 +524,11 @@ class ClangTidyLocalCache(object):
         path = self._make_path(digest)
         if os.path.isfile(path):
             os.utime(path, None)
+            self.update_stats(True)
             with open(path, "rb") as stream:
                 return stream.read()
         else:
+            self.update_stats(False)
             return None
 
     # --------------------------------------------------------------------------
