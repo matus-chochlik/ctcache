@@ -450,7 +450,7 @@ class FileLock:
     def release(self):
         if self._lock_handle is not None:
             try:
-                self._lock_handle.close()
+                os.close(self._lock_handle)
                 os.unlink(self._lock_path)  # Remove the lock file upon release
             except OSError:
                 pass  # Ignore errors if the file doesn't exist or has already been released
@@ -848,7 +848,7 @@ def hash_inputs(opts):
 
     # Execute the compiler command defined by the compiler arguments. At this
     # point if we have compiler arguments with expect that it defines a valid
-    # command to get the preprocess output.
+    # command to get the pre-processed output.
     # If we have a valid output this gets added to the hash.
     proc = subprocess.Popen(
         co_args,
@@ -860,7 +860,7 @@ def hash_inputs(opts):
         return None
     result.update(stdout)
 
-    #==== Source File Modification Time ===========================================#
+    # --- Source File Modification Time ----------------------------------------
 
     source_file_extensions = [".cpp", ".c", ".cc", ".h", ".hpp", ".cxx"]
 
@@ -870,7 +870,7 @@ def hash_inputs(opts):
             source_file = os.path.normpath(os.path.realpath(line))
             break
 
-    #=========== Config Contents ==================================================#
+    # --- Config Contents ------------------------------------------------------
 
     config_directories = opts.directories_with_clang_tidy()
     
