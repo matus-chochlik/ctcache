@@ -862,7 +862,7 @@ def hash_inputs(opts):
 
     #==== Source File Modification Time ===========================================#
 
-    source_file_extensions = [".cpp", ".c", ".h", ".hpp", ".cxx"]
+    source_file_extensions = [".cpp", ".c", ".cc", ".h", ".hpp", ".cxx"]
 
     # Find the first valid source file in ct_args
     for line in ct_args[1:]:
