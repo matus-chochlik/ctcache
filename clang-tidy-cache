@@ -423,38 +423,39 @@ class ClangTidyServerCache(object):
 class FileLock:
     DEFAULT_TIMEOUT = 3  # seconds
 
-    def __init__(self, lockfile, timeout=DEFAULT_TIMEOUT):
-        self.lockfile = os.path.abspath(os.path.expanduser(lockfile))
-        self.timeout = timeout
-        self.lock_handle = None
+    def __init__(self, lock_path, timeout=DEFAULT_TIMEOUT):
+        self._lock_path = os.path.abspath(os.path.expanduser(lock_path))
+        self._timeout = timeout
+        self._lock_handle = None
 
     def acquire(self):
         start_time = time.time()
         while True:
             try:
                 # Attempt to create the lock file exclusively
-                self.lock_handle = os.open(self.lockfile, os.O_CREAT | os.O_EXCL)
+                self._lock_handle = os.open(self._lock_path, os.O_CREAT | os.O_EXCL)
                 return self
             except FileExistsError:
                 # File is locked, check if the timeout has been exceeded
-                if time.time() - start_time > self.timeout:
-                    msg = f"Timeout ({self.timeout} seconds) exceeded while acquiring lock."
+                if time.time() - start_time > self._timeout:
+                    msg = f"Timeout ({self._timeout} seconds) exceeded while acquiring lock."
                     print(msg)
                     raise RuntimeError(msg)
                 # Wait and try again
                 time.sleep(0.1)
             except FileNotFoundError:
                 # The path to the lock file doesn't exist, create it and retry
-                os.makedirs(os.path.dirname(self.lockfile), exist_ok=True)
+                os.makedirs(os.path.dirname(self._lock_path), exist_ok=True)
 
     def release(self):
-        if self.lock_handle is not None:
+        if self._lock_handle is not None:
             try:
-                os.unlink(self.lockfile)  # Remove the lock file upon release
+                self._lock_handle.close()
+                os.unlink(self._lock_path)  # Remove the lock file upon release
             except OSError:
                 pass  # Ignore errors if the file doesn't exist or has already been released
             finally:
-                self.lock_handle = None
+                self._lock_handle = None
 
     def __enter__(self):
         return self.acquire()
