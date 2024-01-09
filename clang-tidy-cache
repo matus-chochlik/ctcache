@@ -856,7 +856,7 @@ def hash_inputs(opts):
         stderr=subprocess.PIPE
     )
     stdout, stderr = proc.communicate()
-    if stderr:
+    if proc.returncode != 0:
         return None
     result.update(stdout)
 
