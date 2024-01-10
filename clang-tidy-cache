@@ -15,6 +15,7 @@ import hashlib
 import tempfile
 import subprocess
 import json
+import platform
 import shlex
 import sys
 import time
@@ -211,12 +212,16 @@ class ClangTidyCacheOpts(object):
             user = getpass.getuser()
         except KeyError:
             user = "unknown"
-        self._cache_dir = os.getenv(
-            "CTCACHE_DIR",
+        default_cache_dir = {
+            "Darwin": os.path.expanduser("~/Library/Caches/ctcache"),
+            "Windows": os.path.expanduser("~\\AppData\\Local\\cache\\ctcache"),
+        }.get(
+            platform.system(),
             os.path.join(
                 tempfile.tempdir if tempfile.tempdir else "/tmp", "ctcache-" + user
             ),
         )
+        self._cache_dir = os.getenv("CTCACHE_DIR", default_cache_dir)
         return self._cache_dir
 
     # --------------------------------------------------------------------------
