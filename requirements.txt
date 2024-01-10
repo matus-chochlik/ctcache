@@ -3,3 +3,4 @@ gevent
 WSGIserver
 matplotlib
 requests
+msgpack

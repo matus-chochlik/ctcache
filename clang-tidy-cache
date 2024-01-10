@@ -15,6 +15,7 @@ import hashlib
 import tempfile
 import subprocess
 import json
+import msgpack
 import platform
 import shlex
 import sys
@@ -26,6 +27,20 @@ try:
     import redis
 except ImportError:
     redis = None
+
+# ------------------------------------------------------------------------------
+class OutputData(tp.TypedDict):
+    stdout: bytes
+    stderr: bytes
+    returncode: int
+
+# ------------------------------------------------------------------------------
+def serialize(data: OutputData) -> bytes:
+    return msgpack.dumps(data)
+
+# ------------------------------------------------------------------------------
+def deserialize(data: bytes) -> OutputData:
+    return msgpack.loads(data)
 
 # ------------------------------------------------------------------------------
 class ClangTidyCacheOpts(object):
@@ -410,7 +425,7 @@ class ClangTidyServerCache(object):
         return None
 
     # --------------------------------------------------------------------------
-    def store_in_cache(self, digest, data: bytes):
+    def store_in_cache(self, digest, data: OutputData):
         if self._opts.save_output():
             return
         try:
@@ -584,28 +599,32 @@ class ClangTidyLocalCache(object):
         return False
 
     # --------------------------------------------------------------------------
-    def get_cache_data(self, digest) -> tp.Optional[bytes]:
+    def get_cache_data(self, digest) -> tp.Optional[OutputData]:
         path = self._make_path(digest)
         if os.path.isfile(path):
             os.utime(path, None)
             if self._stats:
                 self._stats.update(True)
             with open(path, "rb") as stream:
-                return stream.read()
+                return msgpack.load(stream)
         else:
             if self._stats:
                 self._stats.update(False)
             return None
 
     # --------------------------------------------------------------------------
-    def store_in_cache(self, digest, data: bytes):
+    def store_in_cache(self, digest, data: OutputData):
         p = self._make_path(digest)
         self._mkdir_p(os.path.dirname(p))
-        if self._opts.save_output():
+        if not self._opts.save_output():
+            data["stdout"] = ""
+            data["stderr"] = ""
+        try:
             with open(p, "wb") as stream:
-                stream.write(data)
-        else:
-            open(p, "w").close()
+                msgpack.dump(data, stream)
+        except Exception as e:
+            print(f"Error writing to file: {e}", file=sys.stderr)
+            os.unlink(p)
 
     # --------------------------------------------------------------------------
     def _list_cached_files(self, options, prefix):
@@ -677,14 +696,20 @@ class ClangTidyRedisCache(object):
         return self._cli.get(n_digest) is not None
 
     # --------------------------------------------------------------------------
-    def get_cache_data(self, digest) -> tp.Optional[bytes]:
+    def get_cache_data(self, digest) -> tp.Optional[OutputData]:
         n_digest = self._get_key_from_digest(digest)
-        return self._cli.get(n_digest)
+        data = self._cli.get(n_digest)
+        if data is None:
+            return None
+        return msgpack.loads(data)
 
     # --------------------------------------------------------------------------
-    def store_in_cache(self, digest, data: bytes):
+    def store_in_cache(self, digest, data: OutputData):
         n_digest = self._get_key_from_digest(digest)
-        self._cli.set(n_digest, data if self._opts.save_output() else "")
+        if not self._opts.save_output():
+            data["stdout"] = ""
+            data["stderr"] = ""
+        self._cli.set(n_digest, msgpack.dumps(data))
 
     # --------------------------------------------------------------------------
     def query_stats(self, options):
@@ -736,7 +761,7 @@ class ClangTidyS3Cache(object):
         return None
 
     # --------------------------------------------------------------------------
-    def store_in_cache(self, digest, data: bytes):
+    def store_in_cache(self, digest, data: OutputData):
         if self._opts.save_output():
             return
         if self._opts.s3_no_credentials():
@@ -789,25 +814,26 @@ class ClangTidyGcsCache(object):
             raise
 
     # --------------------------------------------------------------------------
-    def get_cache_data(self, digest) -> tp.Optional[bytes]:
+    def get_cache_data(self, digest) -> tp.Optional[OutputData]:
         try:
             path = self._make_path(digest)
             blob = self._bucket.blob(path)
-            return blob.download_as_bytes()
+            data = blob.download_as_bytes()
+            return deserialize(data)
         except Exception as e:
             return None
 
     # --------------------------------------------------------------------------
-    def store_in_cache(self, digest, data: bytes):
+    def store_in_cache(self, digest, data: OutputData):
         if self._opts.gcs_no_credentials():
             return
         try:
             path = self._make_path(digest)
-            blob = self._bucket.blob(path)
             if self._opts.save_output():
-                blob.upload_from_string(data, content_type="application/octet-stream")
-            else:
-                blob.upload_from_string(digest)
+                data["stdout"] = ""
+                data["stderr"] = ""
+            blob = self._bucket.blob(path)
+            blob.upload_from_string(serialize(data), content_type="application/octet-stream")
         except Exception as e:
             self._log.error(
                 "Error calling GCS:blob.upload_from_string {}".format(str(e)))
@@ -859,7 +885,7 @@ class ClangTidyCache(object):
         return False
 
     # --------------------------------------------------------------------------
-    def get_cache_data(self, digest) -> tp.Optional[bytes]:
+    def get_cache_data(self, digest) -> tp.Optional[OutputData]:
         for cache in self._caches:
             data = cache.get_cache_data(digest)
             if data:
@@ -868,7 +894,7 @@ class ClangTidyCache(object):
         return None
 
     # --------------------------------------------------------------------------
-    def store_in_cache(self, digest, data: bytes):
+    def store_in_cache(self, digest, data: OutputData):
         for cache in self._caches:
             cache.store_in_cache(digest, data)
 
@@ -1057,10 +1083,11 @@ def run_clang_tidy_cached(log, opts):
         if digest and opts.save_output():
             data = cache.get_cache_data(digest)
             if data is not None:
-                sys.stdout.write(data.decode("utf8"))
-                return 0
+                sys.stdout.write(data["stdout"].decode("utf8"))
+                sys.stderr.write(data["stderr"].decode("utf8"))
+                return data["returncode"]
         elif digest and cache.is_cached(digest):
-            return 0
+            return cache.get_cache_data(digest)["returncode"]
         else:
             pass
     except Exception as error:
@@ -1084,7 +1111,7 @@ def run_clang_tidy_cached(log, opts):
 
     if tidy_success and digest:
         try:
-            cache.store_in_cache(digest, stdout)
+            cache.store_in_cache(digest, {"returncode": proc.returncode, "stdout": stdout, "stderr": stderr})
         except Exception as error:
             log.error(str(error))
 
