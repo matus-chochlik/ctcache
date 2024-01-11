@@ -420,16 +420,22 @@ class ClangTidyServerCache(object):
         return False
 
     # --------------------------------------------------------------------------
-    def get_cache_data(self, digest) -> tp.Optional[bytes]:
-        # TODO
-        return None
+    def get_cache_data(self, digest) -> tp.Optional[OutputData]:
+        try:
+            query = self._requests.get(self._make_cache_url(digest), timeout=3)
+            if query.status_code == 200:
+                return msgpack.loads(query.content)
+            else:
+                self._log.error("store_in_cache: Can't get data in server {0}, error {1}".format(
+                    self._opts.rest_host(), query.status_code))
+                return None
+        except:
+            pass
 
     # --------------------------------------------------------------------------
     def store_in_cache(self, digest, data: OutputData):
-        if self._opts.save_output():
-            return
         try:
-            query = self._requests.get(self._make_store_url(digest), timeout=3)
+            query = self._requests.post(self._make_cache_url(digest), timeout=3, data=serialize(data))
             if query.status_code == 200:
                 return
             else:
@@ -466,7 +472,7 @@ class ClangTidyServerCache(object):
         }
 
     # --------------------------------------------------------------------------
-    def _make_store_url(self, digest):
+    def _make_cache_url(self, digest):
         return "%(proto)s://%(host)s:%(port)d/cache/%(digest)s" % {
             "proto": self._opts.rest_proto(),
             "host": self._opts.rest_host(),

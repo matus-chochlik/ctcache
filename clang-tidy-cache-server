@@ -10,13 +10,16 @@ import re
 import io
 import math
 import json
+import msgpack
 import time
 import gzip
 import flask
+from flask import request, make_response
 import shutil
 import argparse
 import matplotlib.pyplot as plt
 import matplotlib.ticker as pltckr
+import typing as tp
 
 # ------------------------------------------------------------------------------
 class ArgumentParser(argparse.ArgumentParser):
@@ -267,14 +270,15 @@ class ClangTidyCache(object):
     # --------------------------------------------------------------------------
     def do_load(self):
         try:
-            with gzip.open(self._save_path, 'rt', encoding="utf8") as dbf:
-                for hashstr, data in json.load(dbf).items():
+            with gzip.open(self._save_path, 'rb') as dbf:
+                for hashstr, data in msgpack.load(dbf).items():
                     if self.is_valid_hash(hashstr):
                         try:
                             info = self._cached[hashstr] = dict()
                             info["hits"] = data["hits"]
                             info["insert_time"] = data["insert_time"]
                             info["access_time"] = data["access_time"]
+                            info["data"] = data["data"]
                         except KeyError:
                             pass
         except Exception as err:
@@ -283,8 +287,8 @@ class ClangTidyCache(object):
     # --------------------------------------------------------------------------
     def do_save(self):
         try:
-            with gzip.open(self._save_path, 'wt', encoding="utf8") as dbf:
-                json.dump(self._cached, dbf)
+            with gzip.open(self._save_path, 'wb') as dbf:
+                msgpack.dump(self._cached, dbf)
         except:
             pass
 
@@ -324,7 +328,20 @@ class ClangTidyCache(object):
         return self._hash_re.match(hashstr)
 
     # --------------------------------------------------------------------------
-    def cache(self, hashstr):
+    def get_cache_data(self, hashstr) -> tp.Optional[bytes]:
+        try:
+            info = self._cached[hashstr]
+            info["access_time"] = time.time()
+            info["hits"] += 1
+            self._hits_count += 1
+            self.maintain()
+            return info["data"]
+        except KeyError:
+            self._miss_count += 1
+            return None
+
+    # --------------------------------------------------------------------------
+    def cache(self, hashstr, data: bytes):
         try:
             info = self._cached[hashstr]
             info["access_time"] = time.time()
@@ -334,6 +351,7 @@ class ClangTidyCache(object):
                 "insert_time": time.time(),
                 "access_time": time.time(),
                 "hits": 1,
+                "data": data,
             }
             self.maintain()
 
@@ -714,13 +732,21 @@ class ClangTidyCache(object):
         return output
 
 # ------------------------------------------------------------------------------
-@ctcache_app.route("/cache/<hashstr>")
+@ctcache_app.route("/cache/<hashstr>", methods=["GET","POST"])
 def ctc_cache(hashstr):
     if clang_tidy_cache.is_valid_hash(hashstr):
-        clang_tidy_cache.cache(hashstr)
-        return "true"
+        if request.method == "GET":
+            data = clang_tidy_cache.get_cache_data(hashstr)
+            if data is None:
+                return "Not Found", 404
+            return make_response(data)
+        else:
+            if request.content_length > 1024*1024:
+                return "too large", 413
+            clang_tidy_cache.cache(hashstr, request.get_data())
+            return "Success", 200
     else:
-        return "invalid hash"
+        return "invalid hash", 400
 # ------------------------------------------------------------------------------
 @ctcache_app.route("/is_cached/<hashstr>")
 def ctc_is_cached(hashstr):
