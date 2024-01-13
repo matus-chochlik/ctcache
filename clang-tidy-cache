@@ -313,7 +313,12 @@ class ClangTidyCacheOpts(object):
 
     # --------------------------------------------------------------------------
     def exclude_hash_regex(self):
-        return os.getenv("CTCACHE_EXCLUDE_HASH_REGEX", "")
+        return os.getenv("CTCACHE_EXCLUDE_HASH_REGEX")
+
+    # --------------------------------------------------------------------------
+    def exclude_hash(self, chunk):
+        return self.exclude_hash_regex() is not None and \
+            re.match(self.exclude_hash_regex(), chunk.decode("utf8"))
 
     # --------------------------------------------------------------------------
     def has_redis_host(self) -> bool:
@@ -348,7 +353,10 @@ class ClangTidyCacheHash(object):
     # --------------------------------------------------------------------------
     def __init__(self, opts):
         self._hash = hashlib.sha1()
-        self._dump = self._opendump(opts) if opts.dump_enabled() else None
+        if opts.dump_enabled():
+            self._dump = self._opendump(opts)
+        else:
+            self._dump = None
         assert self._dump or not opts.dump_enabled()
 
     # --------------------------------------------------------------------------
@@ -761,11 +769,7 @@ class ClangTidyS3Cache(object):
 
     # --------------------------------------------------------------------------
     def _make_path(self, digest):
-        return os.path.join(
-            self._bucket_folder,
-            digest[:2],
-            digest[2:]
-        )
+        return os.path.join(self._bucket_folder, digest[:2], digest[2:])
 
 # ------------------------------------------------------------------------------
 class ClangTidyGcsCache(object):
@@ -790,8 +794,7 @@ class ClangTidyGcsCache(object):
             t = blob.exists()
             return t
         except Exception as e:
-            self._log.error(
-                "Error calling GCS:blob.exists {}".format(str(e)))
+            self._log.error("Error calling GCS:blob.exists {}".format(str(e)))
             raise
 
     # --------------------------------------------------------------------------
@@ -841,11 +844,7 @@ class ClangTidyGcsCache(object):
 
     # --------------------------------------------------------------------------
     def _make_path(self, digest):
-        return os.path.join(
-            self._bucket_folder,
-            digest[:2],
-            digest[2:]
-        )
+        return os.path.join(self._bucket_folder, digest[:2], digest[2:])
 
 # ------------------------------------------------------------------------------
 class ClangTidyCache(object):
@@ -1006,11 +1005,11 @@ def hash_inputs(opts):
     ct_args = list(_omit_after(ct_args, ["-export-fixes"]))
 
     for chunk in sorted(set([opts.adjust_chunk(arg) for arg in ct_args[1:]])):
-        if not opts.exclude_hash_regex() or not re.match(opts.exclude_hash_regex(), chunk.decode("utf8")):
+        if not opts.exclude_hash(chunk):
             result.update(chunk)
 
     for chunk in sorted(set([opts.adjust_chunk(arg) for arg in co_args[1:]])):
-        if not opts.exclude_hash_regex() or not re.match(opts.exclude_hash_regex(), chunk.decode("utf8")):
+        if not opts.exclude_hash(chunk):
             result.update(chunk)
 
     return result.hexdigest()
@@ -1147,7 +1146,6 @@ def main():
         else:
             log.error("%s: %s" % (str(type(error)), str(error)))
         return 1
-
 
 # ------------------------------------------------------------------------------
 if __name__ == "__main__":
