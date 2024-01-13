@@ -11,6 +11,9 @@ find_program(CLANG_TIDY_COMMAND clang-tidy)
 add_executable(bad01 bad01.cpp)
 target_compile_options(bad01 PRIVATE -pedantic;-Wall;-Werror)
 
+add_executable(good good.cpp)
+target_compile_options(good PRIVATE -pedantic;-Wall;-Werror)
+
 if(CLANG_TIDY_COMMAND)
     function(find_all_directories_with_clang_tidy VARIABLE)
         file(GLOB CLANG_TIDY_FILES "${CMAKE_CURRENT_SOURCE_DIR}/.clang-tidy")
@@ -53,6 +56,8 @@ if(CLANG_TIDY_COMMAND)
 
     if(DIRECTORIES_WITH_CLANG_TIDY)
         set_target_properties(bad01 PROPERTIES CXX_CLANG_TIDY ${CLANG_TIDY_COMMAND} --directories_with_clang_tidy=${DIRECTORIES_WITH_CLANG_TIDY})
+        set_target_properties(good PROPERTIES CXX_CLANG_TIDY ${CLANG_TIDY_COMMAND} --directories_with_clang_tidy=${DIRECTORIES_WITH_CLANG_TIDY})
+        set_target_properties(good PROPERTIES CXX_CLANG_TIDY ${CLANG_TIDY_COMMAND})
     else()
         set_target_properties(bad01 PROPERTIES CXX_CLANG_TIDY ${CLANG_TIDY_COMMAND})
     endif()
