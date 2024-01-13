@@ -43,22 +43,30 @@ if(CLANG_TIDY_COMMAND)
             endif()
         endforeach()
 
-        # CMake splits args up with ";" so use "*" to keep all the directories together, folders can't contain "*" in their name so this should be safe
+        # CMake splits args up with ";" so use "*" to keep all the directories
+        # together, folders can't contain "*" in their name so this should be safe
         string(REPLACE ";" "*" DIRECTORIES_WITH_CLANG_TIDY "${DIRECTORIES_WITH_CLANG_TIDY}")
 
         set(${VARIABLE}
             ${DIRECTORIES_WITH_CLANG_TIDY}
-            PARENT_SCOPE
-        )
+            PARENT_SCOPE)
     endfunction()
 
     find_all_directories_with_clang_tidy(DIRECTORIES_WITH_CLANG_TIDY)
 
     if(DIRECTORIES_WITH_CLANG_TIDY)
-        set_target_properties(bad01 PROPERTIES CXX_CLANG_TIDY ${CLANG_TIDY_COMMAND} --directories_with_clang_tidy=${DIRECTORIES_WITH_CLANG_TIDY})
-        set_target_properties(good PROPERTIES CXX_CLANG_TIDY ${CLANG_TIDY_COMMAND} --directories_with_clang_tidy=${DIRECTORIES_WITH_CLANG_TIDY})
-        set_target_properties(good PROPERTIES CXX_CLANG_TIDY ${CLANG_TIDY_COMMAND})
+        set_target_properties(
+            bad01 PROPERTIES
+            CXX_CLANG_TIDY
+                ${CLANG_TIDY_COMMAND}
+                --directories_with_clang_tidy=${DIRECTORIES_WITH_CLANG_TIDY})
+        set_target_properties(
+            good PROPERTIES
+            CXX_CLANG_TIDY
+                ${CLANG_TIDY_COMMAND}
+                --directories_with_clang_tidy=${DIRECTORIES_WITH_CLANG_TIDY})
     else()
         set_target_properties(bad01 PROPERTIES CXX_CLANG_TIDY ${CLANG_TIDY_COMMAND})
+        set_target_properties(good PROPERTIES CXX_CLANG_TIDY ${CLANG_TIDY_COMMAND})
     endif()
 endif()
