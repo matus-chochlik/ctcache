@@ -32,16 +32,16 @@ class ClangTidyCacheOpts(object):
     def __init__(self, log, args):
         self._log = log
         self._directories_with_clang_tidy = []
-        
+
         # Define the prefix used to identify directories with clang-tidy
         prefix = '--directories_with_clang_tidy='
 
         # Iterate through the command line arguments
         for index, arg in enumerate(args):
             if arg.startswith(prefix):
-                # Split the argument using '*' as a separator to get a list of directories, I
-                # used '*' because a folder cannot contain this character in its name whereas
-                # it can contain `,`
+                # Split the argument using '*' as a separator to get a list
+                # of directories, I used '*' because a folder cannot contain
+                # this character in its name whereas it can contain `,`
                 self._directories_with_clang_tidy = arg[len(prefix):].split('*')
 
                 # Remove the argument because clang-tidy will not like it
@@ -55,11 +55,22 @@ class ClangTidyCacheOpts(object):
         self._original_args = args
         self._clang_tidy_args = []
         self._compiler_args = []
-        self._cache_dir = ""
+        self._cache_dir = None
         self._compile_commands_db = None
 
         self._strip_list = os.getenv("CTCACHE_STRIP", "").split(':')
 
+        args = self._split_compiler_clang_tidy_args(args)
+        self._adjust_compiler_args(args)
+
+    # --------------------------------------------------------------------------
+    def running_on_msvc(self):
+        if self._compiler_args:
+           return os.path.basename(self._compiler_args[0]) == "cl.exe"
+        return False
+
+    # --------------------------------------------------------------------------
+    def _split_compiler_clang_tidy_args(self, args):
         # splits arguments starting with - on the first =
         args = [arg.split('=', 1) if arg.startswith('-p') else [arg] for arg in args]
         args = [arg for sub in args for arg in sub]
@@ -91,7 +102,13 @@ class ClangTidyCacheOpts(object):
             filenames = [arg for arg in args[i:] if not arg.startswith("-")]
             if len(filenames) > 0:
                 self._compiler_args = self._compiler_args_for(filenames[0])
+        else:
+            # Invoked as pure clang-tidy command
+            self._clang_tidy_args = args[1:]
+        return args
 
+    # --------------------------------------------------------------------------
+    def _adjust_compiler_args(self, args):
         if self._compiler_args:
             self._compiler_args.insert(1, "-D__clang_analyzer__=1")
             for i in range(1, len(self._compiler_args)):
@@ -101,7 +118,7 @@ class ClangTidyCacheOpts(object):
                     self._compiler_args[i-1] = "-E"
             for i in range(1, len(self._compiler_args)):
                 if self._compiler_args[i-1] in ["-E"]:
-                    if os.path.basename(self._compiler_args[0]) == "cl.exe":
+                    if self.running_on_msvc():
                         self._compiler_args[i-1] = "-EP"
                     else:
                         self._compiler_args.insert(i, "-P")
@@ -251,6 +268,14 @@ class ClangTidyCacheOpts(object):
         return os.getenv("CTCACHE_GCS_NO_CREDENTIALS", None)
 
     # --------------------------------------------------------------------------
+    def cache_locally(self):
+        return os.getenv("CTCACHE_LOCAL", "0") == "1"
+
+    # --------------------------------------------------------------------------
+    def no_local_stats(self):
+        return os.getenv("CTCACHE_NO_LOCAL_STATS", "0") == "1"
+
+    # --------------------------------------------------------------------------
     def has_host(self):
         return os.getenv("CTCACHE_HOST") is not None
 
@@ -314,7 +339,6 @@ class ClangTidyCacheOpts(object):
     def redis_namespace(self) -> str:
         return os.getenv("CTCACHE_REDIS_NAMESPACE", "ctcache/")
 
-
 # ------------------------------------------------------------------------------
 class ClangTidyCacheHash(object):
     # --------------------------------------------------------------------------
@@ -368,6 +392,11 @@ class ClangTidyServerCache(object):
         return False
 
     # --------------------------------------------------------------------------
+    def get_cache_data(self, digest) -> tp.Optional[bytes]:
+        # TODO
+        return None
+
+    # --------------------------------------------------------------------------
     def store_in_cache(self, digest):
         try:
             query = self._requests.get(self._make_store_url(digest), timeout=3)
@@ -380,6 +409,11 @@ class ClangTidyServerCache(object):
             pass
 
     # --------------------------------------------------------------------------
+    def store_in_cache_with_data(self, digest, data: bytes):
+        # TODO
+        pass
+
+    # --------------------------------------------------------------------------
     def query_stats(self, options):
         try:
             query = self._requests.get(self._make_stats_url(), timeout=3)
@@ -390,10 +424,10 @@ class ClangTidyServerCache(object):
                     self._opts.rest_host(), query.status_code))
         except:
             pass
-        return {}
+        return None
 
     # --------------------------------------------------------------------------
-    def zero_stats(self, options):
+    def clear_stats(self, options):
         # Not implemented
         pass
 
@@ -423,14 +457,15 @@ class ClangTidyServerCache(object):
             "port": self._opts.rest_port()
         }
 
-class FileLock:
-    DEFAULT_TIMEOUT = 3  # seconds
-
-    def __init__(self, lock_path, timeout=DEFAULT_TIMEOUT):
+# ------------------------------------------------------------------------------
+class MultiprocessLock:
+    # --------------------------------------------------------------------------
+    def __init__(self, lock_path, timeout=3): # timeout 3 seconds
         self._lock_path = os.path.abspath(os.path.expanduser(lock_path))
         self._timeout = timeout
         self._lock_handle = None
 
+    # --------------------------------------------------------------------------
     def acquire(self):
         start_time = time.time()
         while True:
@@ -441,8 +476,6 @@ class FileLock:
             except FileExistsError:
                 # File is locked, check if the timeout has been exceeded
                 if time.time() - start_time > self._timeout:
-                    msg = f"Timeout ({self._timeout} seconds) exceeded while acquiring lock."
-                    print(msg)
                     raise RuntimeError(msg)
                 # Wait and try again
                 time.sleep(0.1)
@@ -450,6 +483,7 @@ class FileLock:
                 # The path to the lock file doesn't exist, create it and retry
                 os.makedirs(os.path.dirname(self._lock_path), exist_ok=True)
 
+    # --------------------------------------------------------------------------
     def release(self):
         if self._lock_handle is not None:
             try:
@@ -460,35 +494,42 @@ class FileLock:
             finally:
                 self._lock_handle = None
 
+    # --------------------------------------------------------------------------
     def __enter__(self):
         return self.acquire()
 
+    # --------------------------------------------------------------------------
     def __exit__(self, exc_type, exc_value, traceback):
         self.release()
 
 # ------------------------------------------------------------------------------
-class ClangTidyLocalCache(object):
+class ClangTidyLocalStats(object):
+    # --------------------------------------------------------------------------
+    def __init__(self, log, opts):
+        self._log = log
+        self._opts = opts
+
     # --------------------------------------------------------------------------
     def stats_file(self):
         return os.path.join(self._opts.cache_dir, "stats")
 
     # --------------------------------------------------------------------------
-    def read_stats(self):
-        with FileLock(self.stats_file() + ".lock") as _:
+    def read(self):
+        with MultiprocessLock(self.stats_file() + ".lock") as _:
             if os.path.isfile(self.stats_file()):
                 with open(self.stats_file(), 'r') as f:
                     content = f.read().split()
                     if len(content) == 2:
                         return int(content[0]), int(content[1])
                     else:
-                        print(f"Invalid stats content in: {self.stats_file()}")
+                        self._log.error(f"Invalid stats content in: {self.stats_file()}")
             return 0,0
 
     # --------------------------------------------------------------------------
-    def update_stats(self, hit):
+    def update(self, hit):
         try:
-            hits, misses = self.read_stats()
-            with FileLock(self.stats_file() + ".lock") as _:
+            hits, misses = self.read()
+            with MultiprocessLock(self.stats_file() + ".lock") as _:
                 if hit:
                     hits += 1
                 else:
@@ -497,30 +538,39 @@ class ClangTidyLocalCache(object):
                     with open(self.stats_file(), 'w') as fh:
                         fh.write(f"{hits} {misses}\n")
                 except IOError as e:
-                    print(f"Error writing to file: {e}")
+                    self._log_error(f"Error writing to file: {e}")
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
             raise
 
     # --------------------------------------------------------------------------
-    def zero_stats(self):
+    def clear(self):
         if os.path.exists(self.stats_file()):
             os.unlink(self.stats_file())
 
+# ------------------------------------------------------------------------------
+class ClangTidyLocalCache(object):
     # --------------------------------------------------------------------------
     def __init__(self, log, opts):
         self._log = log
         self._opts = opts
+        self._hash_regex = re.compile(r'^[0-9a-f]{38}$')
+        if opts.no_local_stats():
+            self._stats = None
+        else:
+            self._stats = ClangTidyLocalStats(log, opts)
 
     # --------------------------------------------------------------------------
     def is_cached(self, digest):
         path = self._make_path(digest)
         if os.path.isfile(path):
             os.utime(path, None)
-            self.update_stats(True)
+            if self._stats:
+                self._stats.update(True)
             return True
 
-        self.update_stats(False)
+        if self._stats:
+            self._stats.update(False)
         return False
 
     # --------------------------------------------------------------------------
@@ -528,11 +578,13 @@ class ClangTidyLocalCache(object):
         path = self._make_path(digest)
         if os.path.isfile(path):
             os.utime(path, None)
-            self.update_stats(True)
+            if self._stats:
+                self._stats.update(True)
             with open(path, "rb") as stream:
                 return stream.read()
         else:
-            self.update_stats(False)
+            if self._stats:
+                self._stats.update(False)
             return None
 
     # --------------------------------------------------------------------------
@@ -549,6 +601,37 @@ class ClangTidyLocalCache(object):
             stream.write(data)
 
     # --------------------------------------------------------------------------
+    def _list_cached_files(self, options, prefix):
+        for root, dirs, files in os.walk(prefix):
+            for prefix in dirs:
+                for filename in self._list_cached_files(options, prefix):
+                    if self._hash_regex.match(filename):
+                        yield root, prefix, filename
+            for filename in files:
+                if self._hash_regex.match(filename):
+                    yield root, prefix, filename
+
+    # --------------------------------------------------------------------------
+    def query_stats(self, options):
+        if self._stats:
+            hits, misses = self._stats.read()
+            total = hits + misses
+
+            hash_count = sum(1 for x in self._list_cached_files(options, options.cache_dir))
+
+            return {
+                "hit_count": hits,
+                "miss_count": misses,
+                "hit_rate": hits/total if total else 0,
+                "miss_rate": misses/total if total else 0,
+                "cached_count": hash_count}
+
+    # --------------------------------------------------------------------------
+    def clear_stats(self, options):
+        if self._stats:
+            self._stats.clear()
+
+    # --------------------------------------------------------------------------
     def _mkdir_p(self, path):
         try:
             os.makedirs(path)
@@ -562,8 +645,9 @@ class ClangTidyLocalCache(object):
     def _make_path(self, digest):
         return os.path.join(self._opts.cache_dir, digest[:2], digest[2:])
 
-
+# ------------------------------------------------------------------------------
 class ClangTidyRedisCache(object):
+    # --------------------------------------------------------------------------
     def __init__(self, log, opts: ClangTidyCacheOpts):
         self._log = log
         self._opts = opts
@@ -576,24 +660,39 @@ class ClangTidyRedisCache(object):
         )
         self._namespace = opts.redis_namespace()
 
+    # --------------------------------------------------------------------------
     def _get_key_from_digest(self, digest) -> str:
         return self._namespace + digest
 
+    # --------------------------------------------------------------------------
     def is_cached(self, digest) -> bool:
         n_digest = self._get_key_from_digest(digest)
         return self._cli.get(n_digest) is not None
 
+    # --------------------------------------------------------------------------
     def get_cache_data(self, digest) -> tp.Optional[bytes]:
         n_digest = self._get_key_from_digest(digest)
         return self._cli.get(n_digest)
 
+    # --------------------------------------------------------------------------
     def store_in_cache(self, digest):
         n_digest = self._get_key_from_digest(digest)
         self._cli.set(n_digest, "")
 
+    # --------------------------------------------------------------------------
     def store_in_cache_with_data(self, digest, data: bytes):
         n_digest = self._get_key_from_digest(digest)
         self._cli.set(n_digest, data)
+
+    # --------------------------------------------------------------------------
+    def query_stats(self, options):
+        # TODO
+        pass
+
+    # --------------------------------------------------------------------------
+    def clear_stats(self, options):
+        # TODO
+        pass
 
 # ------------------------------------------------------------------------------
 class ClangTidyS3Cache(object):
@@ -630,6 +729,11 @@ class ClangTidyS3Cache(object):
         return True
 
     # --------------------------------------------------------------------------
+    def get_cache_data(self, digest) -> tp.Optional[bytes]:
+        # TODO
+        return None
+
+    # --------------------------------------------------------------------------
     def store_in_cache(self, digest):
         if self._opts.s3_no_credentials():
             return
@@ -641,6 +745,21 @@ class ClangTidyS3Cache(object):
             raise
 
     # --------------------------------------------------------------------------
+    def store_in_cache_with_data(self, digest, data: bytes):
+        # TODO
+        pass
+
+    # --------------------------------------------------------------------------
+    def query_stats(self, options):
+        # TODO
+        pass
+
+    # --------------------------------------------------------------------------
+    def clear_stats(self, options):
+        # TODO
+        pass
+
+    # --------------------------------------------------------------------------
     def _make_path(self, digest):
         return os.path.join(
             self._bucket_folder,
@@ -650,6 +769,7 @@ class ClangTidyS3Cache(object):
 
 # ------------------------------------------------------------------------------
 class ClangTidyGcsCache(object):
+    # --------------------------------------------------------------------------
     def __init__(self, log, opts):
         import google.cloud.storage as gcs
 
@@ -662,6 +782,7 @@ class ClangTidyGcsCache(object):
         self._bucket = self._client.bucket(opts.gcs_bucket())
         self._bucket_folder = opts.gcs_bucket_folder()
 
+    # --------------------------------------------------------------------------
     def is_cached(self, digest):
         try:
             path = self._make_path(digest)
@@ -673,6 +794,16 @@ class ClangTidyGcsCache(object):
                 "Error calling GCS:blob.exists {}".format(str(e)))
             raise
 
+    # --------------------------------------------------------------------------
+    def get_cache_data(self, digest) -> tp.Optional[bytes]:
+        try:
+            path = self._make_path(digest)
+            blob = self._bucket.blob(path)
+            return blob.download_as_bytes()
+        except Exception as e:
+            return None
+
+    # --------------------------------------------------------------------------
     def store_in_cache(self, digest):
         if self._opts.gcs_no_credentials():
             return
@@ -685,14 +816,7 @@ class ClangTidyGcsCache(object):
                 "Error calling GCS:blob.upload_from_string {}".format(str(e)))
             raise
 
-    def get_cache_data(self, digest) -> tp.Optional[bytes]:
-        try:
-            path = self._make_path(digest)
-            blob = self._bucket.blob(path)
-            return blob.download_as_bytes()
-        except Exception as e:
-            return None
-
+    # --------------------------------------------------------------------------
     def store_in_cache_with_data(self, digest, data: bytes):
         if self._opts.gcs_no_credentials():
             return
@@ -705,6 +829,17 @@ class ClangTidyGcsCache(object):
                 "Error calling GCS:blob.upload_from_string {}".format(str(e)))
             raise
 
+    # --------------------------------------------------------------------------
+    def query_stats(self, options):
+        # TODO
+        pass
+
+    # --------------------------------------------------------------------------
+    def clear_stats(self, options):
+        # TODO
+        pass
+
+    # --------------------------------------------------------------------------
     def _make_path(self, digest):
         return os.path.join(
             self._bucket_folder,
@@ -712,111 +847,69 @@ class ClangTidyGcsCache(object):
             digest[2:]
         )
 
-
 # ------------------------------------------------------------------------------
 class ClangTidyCache(object):
     # --------------------------------------------------------------------------
     def __init__(self, log, opts: ClangTidyCacheOpts):
         self._log = log
         self._opts = opts
-        self._local_cache = ClangTidyLocalCache(log, opts)
-        self._redis_cache = ClangTidyRedisCache(
-            log, opts) if opts.has_redis_host() and redis else None
-        self._server_cache = ClangTidyServerCache(
-            log, opts) if opts.has_host() else None
-        self._s3_cache = ClangTidyS3Cache(
-            log, opts) if opts.has_s3() else None
-        self._gcs_cache = ClangTidyGcsCache(
-            log, opts) if opts.has_gcs() else None
+        self._caches = []
+
+        if opts.has_host():
+            self._caches.append(ClangTidyServerCache(log, opts))
+
+        if opts.has_redis_host() and redis:
+            self._caches.append(ClangTidyRedisCache(log, opts))
+
+        if opts.has_s3():
+            self._caches.append(ClangTidyS3Cache(log, opts))
+
+        if opts.has_gcs():
+            self._caches.append(ClangTidyGcsCache(log, opts))
+
+        if not self._caches or opts.cache_locally():
+            self._caches.append(ClangTidyLocalCache(log, opts))
 
     # --------------------------------------------------------------------------
     def is_cached(self, digest):
-        if self._local_cache.is_cached(digest):
-            return True
-
-        if self._server_cache != None and self._server_cache.is_cached(digest):
-            return True
-
-        if self._s3_cache != None and self._s3_cache.is_cached(digest):
-            return True
-
-        if self._gcs_cache is not None and self._gcs_cache.is_cached(digest):
-            return True
-
-        if self._redis_cache is not None and self._redis_cache.is_cached(digest):
-            return True
+        for cache in self._caches:
+            if cache.is_cached(digest):
+                return True
 
         return False
 
     # --------------------------------------------------------------------------
     def get_cache_data(self, digest) -> tp.Optional[bytes]:
-        data = self._local_cache.get_cache_data(digest)
+        for cache in self._caches:
+            data = cache.get_cache_data(digest)
+            if data:
+                return data
 
-        if data is None and self._gcs_cache is not None:
-            data = self._gcs_cache.get_cache_data(digest)
-
-        if data is None and self._redis_cache is not None:
-            data = self._redis_cache.get_cache_data(digest)
-
-        # TODO: add support for stdout storage for server cache and s3 cache
-        return data
+        return None
 
     # --------------------------------------------------------------------------
     def store_in_cache(self, digest):
-        self._local_cache.store_in_cache(digest)
-
-        if self._server_cache != None:
-            self._server_cache.store_in_cache(digest)
-
-        if self._s3_cache != None:
-            self._s3_cache.store_in_cache(digest)
-
-        if self._gcs_cache is not None:
-            self._gcs_cache.store_in_cache(digest)
-
-        if self._redis_cache is not None:
-            self._redis_cache.store_in_cache(digest)
+        for cache in self._caches:
+            cache.store_in_cache(digest)
 
     # --------------------------------------------------------------------------
     def store_in_cache_with_data(self, digest, data: bytes):
-        self._local_cache.store_in_cache_with_data(digest, data)
-
-        if self._gcs_cache is not None:
-            self._gcs_cache.store_in_cache_with_data(digest, data)
-
-        if self._redis_cache is not None:
-            self._redis_cache.store_in_cache_with_data(digest, data)
-
-        # TODO: add support for stdout storage for server cache and s3 cache
+        for cache in self._caches:
+            cache.store_in_cache_with_data(digest, data)
 
     # --------------------------------------------------------------------------
     def query_stats(self, options):
-        if self._server_cache is not None:
-            return self._server_cache.query_stats(options)
+        for cache in self._caches:
+            stats = cache.query_stats(options)
+            if stats:
+                return stats
 
-        hits, misses = self._local_cache.read_stats()
-        total = hits + misses
-
-        hash_regex = re.compile(r'^[0-9a-f]{38}$')
-        hash_count = 0
-        for root, dirs, files in os.walk(options.cache_dir):
-            for filename in files:
-                if hash_regex.match(filename):
-                    hash_count += 1
-
-        return {
-            "hit_count": hits,
-            "miss_count": misses,
-            "hit_rate": hits/total if total else 0,
-            "miss_rate": misses/total if total else 0,
-            "cached_count": hash_count}
+        return {}
 
     # --------------------------------------------------------------------------
-    def zero_stats(self, options):
-        if self._server_cache is not None:
-            return self._server_cache.zero_stats(options)
-
-        self._local_cache.zero_stats()
+    def clear_stats(self, options):
+        for cache in self._caches:
+            cache.clear_stats(options)
 
 # ------------------------------------------------------------------------------
 source_file_change_re = re.compile(r'#\s+\d+\s+"([^"]+)".*')
@@ -844,33 +937,41 @@ def hash_inputs(opts):
     if not ct_args and not co_args:
         return None
 
-    if len(co_args) == 0:
-        return None
+    def _is_src_ext(s):
+        exts = [".cppm", ".cpp", ".c", ".cc", ".h", ".hpp", ".cxx"] 
+        return any(s.lower().endswith(ext) for ext in exts)
 
     result = ClangTidyCacheHash(opts)
 
-    # Execute the compiler command defined by the compiler arguments. At this
-    # point if we have compiler arguments with expect that it defines a valid
-    # command to get the pre-processed output.
-    # If we have a valid output this gets added to the hash.
-    proc = subprocess.Popen(
-        co_args,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE
-    )
-    stdout, stderr = proc.communicate()
-    if proc.returncode != 0:
-        return None
-    result.update(stdout)
+    # --- Source file content (potentially pre-processed)
+    if len(co_args) == 0:
+        for arg in ct_args[1:]:
+            if os.path.exists(arg) and _is_src_ext(arg):
+                with open(arg, "rb") as srcfd:
+                    result.update(srcfd.read())
+    else:
+        # Execute the compiler command defined by the compiler arguments. At this
+        # point if we have compiler arguments with expect that it defines a valid
+        # command to get the pre-processed output.
+        # If we have a valid output this gets added to the hash.
+        proc = subprocess.Popen(
+            co_args,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE
+        )
+        stdout, stderr = proc.communicate()
+        if options.running_on_msvc():
+            if proc.returncode != 0:
+                return None
+        else:
+            if stderr:
+                return None
 
-    # --- Source File Modification Time ----------------------------------------
+        result.update(stdout)
 
-    source_file_extensions = [".cpp", ".c", ".cc", ".h", ".hpp", ".cxx"]
-
-    # Find the first valid source file in ct_args
-    for line in ct_args[1:]:
-        if os.path.exists(line) and any(line.lower().endswith(ext) for ext in source_file_extensions):
-            source_file = os.path.normpath(os.path.realpath(line))
+    for arg in ct_args[1:]:
+        if os.path.exists(arg) and _is_src_ext(arg):
+            source_file = os.path.normpath(os.path.realpath(arg))
             break
 
     # --- Config Contents ------------------------------------------------------
@@ -880,7 +981,7 @@ def hash_inputs(opts):
     ct_config_paths = set()
 
     for directory in config_directories:
-        directory = os.path.normpath(directory.strip())  # Normalize and remove whitespace
+        directory = os.path.normpath(directory.strip())
         common_path = os.path.commonpath([source_file, directory])
 
         if common_path == directory:
@@ -892,7 +993,7 @@ def hash_inputs(opts):
                 chunk = opts.adjust_chunk(line)
                 result.update(chunk)
 
-    #==== Clang-Tidy and Compiler Args ============================================#
+    # --- Clang-Tidy and Compiler Args -----------------------------------------
 
     def _omit_after(args, excl):
         omit_next = False
@@ -968,9 +1069,9 @@ def print_stats(log, opts):
             print(label+":", padding, "N/A")
 
 # ------------------------------------------------------------------------------
-def zero_stats(log, opts):
+def clear_stats(log, opts):
     cache = ClangTidyCache(log, opts)
-    cache.zero_stats(opts)
+    cache.clear_stats(opts)
 
 # ------------------------------------------------------------------------------
 def run_clang_tidy_cached(log, opts):
@@ -1036,7 +1137,7 @@ def main():
         elif opts.should_print_stats():
             print_stats(log, opts)
         elif opts.should_zero_stats():
-            zero_stats(log, opts)
+            clear_stats(log, opts)
         else:
             return run_clang_tidy_cached(log, opts)
         return 0
