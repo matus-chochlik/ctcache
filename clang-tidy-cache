@@ -101,7 +101,10 @@ class ClangTidyCacheOpts(object):
                     self._compiler_args[i-1] = "-E"
             for i in range(1, len(self._compiler_args)):
                 if self._compiler_args[i-1] in ["-E"]:
-                    self._compiler_args.insert(i, "-P")
+                    if os.path.basename(self._compiler_args[0]) == "cl.exe":
+                        self._compiler_args[i-1] = "-EP"
+                    else:
+                        self._compiler_args.insert(i, "-P")
 
     # --------------------------------------------------------------------------
     def _load_compile_command_db(self, filename):
@@ -856,7 +859,7 @@ def hash_inputs(opts):
         stderr=subprocess.PIPE
     )
     stdout, stderr = proc.communicate()
-    if stderr:
+    if proc.returncode != 0:
         return None
     result.update(stdout)
 
