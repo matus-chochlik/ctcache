@@ -1,5 +1,5 @@
 #!/bin/bash
-#  Copyright (c) 2020-2021 Matus Chochlik
+#  Copyright (c) 2020-2024 Matus Chochlik
 #  clang-tidy cache wrapper script
 #
 if [[ ${CTCACHE_SKIP:-0} -ne 0 ]]

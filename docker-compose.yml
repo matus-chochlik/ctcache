@@ -3,9 +3,9 @@ services:
     ctcache:
         build: .
         environment:
-            CTCACHE_PORT: 5000
+            CTCACHE_PORT: 5001
         ports:
-            - "5000:5000"
+            - "5001:5001"
         volumes:
             - "ctcache:/var/lib/ctcache"
 volumes:
