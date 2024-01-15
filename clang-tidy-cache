@@ -959,7 +959,7 @@ def hash_inputs(opts):
             stderr=subprocess.PIPE
         )
         stdout, stderr = proc.communicate()
-        if options.running_on_msvc():
+        if opts.running_on_msvc():
             if proc.returncode != 0:
                 return None
         else:
