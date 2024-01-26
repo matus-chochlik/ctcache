@@ -58,7 +58,7 @@ class ClangTidyCacheOpts(object):
         self._cache_dir = None
         self._compile_commands_db = None
 
-        self._strip_list = os.getenv("CTCACHE_STRIP", "").split(':')
+        self._strip_list = os.getenv("CTCACHE_STRIP", "").split(os.pathsep)
 
         args = self._split_compiler_clang_tidy_args(args)
         self._adjust_compiler_args(args)
