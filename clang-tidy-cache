@@ -64,6 +64,15 @@ class ClangTidyCacheOpts(object):
         self._adjust_compiler_args(args)
 
     # --------------------------------------------------------------------------
+    def __repr__(self):
+        return \
+            f"ClangTidyCacheOpts(" \
+                f"clang_tidy_args:{self._clang_tidy_args}," \
+                f"compiler_args:{self._compiler_args}," \
+                f"original_args:{self._original_args}" \
+            f")"
+
+    # --------------------------------------------------------------------------
     def running_on_msvc(self):
         if self._compiler_args:
            return os.path.basename(self._compiler_args[0]) == "cl.exe"
@@ -1122,6 +1131,7 @@ def main():
     log = logging.getLogger(os.path.basename(__file__))
     log.setLevel(logging.WARNING)
     debug = False
+    opts = None
     try:
         opts = ClangTidyCacheOpts(log, sys.argv[1:])
         debug = opts.debug_enabled()
@@ -1142,9 +1152,10 @@ def main():
         return 0
     except Exception as error:
         if debug:
+            log.error("Options: %s" % (repr(opts),))
             raise
         else:
-            log.error("%s: %s" % (str(type(error)), str(error)))
+            log.error("%s: %s" % (str(type(error)), repr(error)))
         return 1
 
 # ------------------------------------------------------------------------------
