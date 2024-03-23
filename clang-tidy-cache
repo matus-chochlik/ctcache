@@ -890,7 +890,7 @@ class ClangTidyCache(object):
     def get_cache_data(self, digest) -> tp.Optional[bytes]:
         for cache in self._caches:
             data = cache.get_cache_data(digest)
-            if data:
+            if data is not None:
                 return data
 
         return None
