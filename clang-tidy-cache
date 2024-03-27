@@ -493,6 +493,7 @@ class MultiprocessLock:
             except FileExistsError:
                 # File is locked, check if the timeout has been exceeded
                 if time.time() - start_time > self._timeout:
+                    msg = f"Timeout ({self._timeout} seconds) exceeded while acquiring lock."
                     raise RuntimeError(msg)
                 # Wait and try again
                 time.sleep(0.1)
