@@ -535,31 +535,42 @@ class ClangTidyLocalStats(object):
     # --------------------------------------------------------------------------
     def read(self):
         with MultiprocessLock(self.stats_file() + ".lock") as _:
-            return self.read_with_lock_held()
+            if os.path.isfile(self.stats_file()):
+                with open(self.stats_file(), 'r') as f:
+                    return self.read_from_file(f)
+            return 0,0
 
     # --------------------------------------------------------------------------
-    def read_with_lock_held(self):
-        if os.path.isfile(self.stats_file()):
-            with open(self.stats_file(), 'r') as f:
-                content = f.read().split()
-                if len(content) == 2:
-                    return int(content[0]), int(content[1])
-                else:
-                    self._log.error(f"Invalid stats content in: {self.stats_file()}")
+    def read_from_file(self, f):
+        content = f.read().split()
+        if len(content) == 2:
+            return int(content[0]), int(content[1])
+        else:
+            self._log.error(f"Invalid stats content in: {self.stats_file()}")
         return 0,0
+
+    # --------------------------------------------------------------------------
+    def write_to_file(self, f, hits, misses, hit):
+        if hit:
+            hits += 1
+        else:
+            misses += 1
+        f.write(f"{hits} {misses}\n")
 
     # --------------------------------------------------------------------------
     def update(self, hit):
         try:
             with MultiprocessLock(self.stats_file() + ".lock") as _:
-                hits, misses = self.read_with_lock_held()
-                if hit:
-                    hits += 1
-                else:
-                    misses += 1
                 try:
-                    with open(self.stats_file(), 'w') as fh:
-                        fh.write(f"{hits} {misses}\n")
+                    if os.path.isfile(self.stats_file()):
+                        with open(self.stats_file(), 'r+') as fh:
+                            hits, misses = self.read_from_file(fh)
+                            fh.seek(0)
+                            self.write_to_file(fh, hits, misses, hit)
+                            fh.truncate()
+                    else:
+                        with open(self.stats_file(), 'w') as fh:
+                            self.write_to_file(fh, 0, 0, hit)
                 except IOError as e:
                     self._log_error(f"Error writing to file: {e}")
         except Exception as e:
