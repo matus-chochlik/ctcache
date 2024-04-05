@@ -534,20 +534,24 @@ class ClangTidyLocalStats(object):
     # --------------------------------------------------------------------------
     def read(self):
         with MultiprocessLock(self.stats_file() + ".lock") as _:
-            if os.path.isfile(self.stats_file()):
-                with open(self.stats_file(), 'r') as f:
-                    content = f.read().split()
-                    if len(content) == 2:
-                        return int(content[0]), int(content[1])
-                    else:
-                        self._log.error(f"Invalid stats content in: {self.stats_file()}")
-            return 0,0
+            return self.read_with_lock_held()
+
+    # --------------------------------------------------------------------------
+    def read_with_lock_held(self):
+        if os.path.isfile(self.stats_file()):
+            with open(self.stats_file(), 'r') as f:
+                content = f.read().split()
+                if len(content) == 2:
+                    return int(content[0]), int(content[1])
+                else:
+                    self._log.error(f"Invalid stats content in: {self.stats_file()}")
+        return 0,0
 
     # --------------------------------------------------------------------------
     def update(self, hit):
         try:
-            hits, misses = self.read()
             with MultiprocessLock(self.stats_file() + ".lock") as _:
+                hits, misses = self.read_with_lock_held()
                 if hit:
                     hits += 1
                 else:
