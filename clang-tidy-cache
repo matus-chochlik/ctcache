@@ -939,7 +939,7 @@ def find_ct_config(search_path):
             return ct_config
 
 # ------------------------------------------------------------------------------
-def hash_inputs(opts):
+def hash_inputs(log, opts):
     ct_args = opts.clang_tidy_args()
     co_args = opts.compiler_args()
 
@@ -974,6 +974,7 @@ def hash_inputs(opts):
                 return None
         else:
             if stderr:
+                log.error(f"Error executing compile command: #{co_args}.\n#{stderr}")
                 return None
 
         result.update(stdout)
@@ -1087,7 +1088,7 @@ def run_clang_tidy_cached(log, opts):
     cache = ClangTidyCache(log, opts)
     digest = None
     try:
-        digest = hash_inputs(opts)
+        digest = hash_inputs(log, opts)
         if digest and opts.save_output():
             data = cache.get_cache_data(digest)
             if data is not None:
