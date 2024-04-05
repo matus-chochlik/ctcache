@@ -119,7 +119,8 @@ class ClangTidyCacheOpts(object):
     # --------------------------------------------------------------------------
     def _adjust_compiler_args(self, args):
         if self._compiler_args:
-            self._compiler_args.insert(1, "-D__clang_analyzer__=1")
+            pos = next((pos for pos, arg in enumerate(self._compiler_args) if arg.startswith('-D')), 1)
+            self._compiler_args.insert(pos, "-D__clang_analyzer__=1")
             for i in range(1, len(self._compiler_args)):
                 if self._compiler_args[i-1] in ["-o", "--output"]:
                     self._compiler_args[i] = "-"
