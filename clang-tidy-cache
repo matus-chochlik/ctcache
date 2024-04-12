@@ -84,11 +84,22 @@ class ClangTidyCacheOpts(object):
         args = [arg.split('=', 1) if arg.startswith('-p') else [arg] for arg in args]
         args = [arg for sub in args for arg in sub]
 
+        def _is_src_ext(s):
+            exts = [".cppm", ".cpp", ".c", ".cc", ".h", ".hpp", ".cxx"]
+            return any(s.lower().endswith(ext) for ext in exts)
+
+
         if args.count("--") == 1:
             # Invoked with compiler args on the actual command line
             i = args.index("--")
             self._clang_tidy_args = args[:i]
             self._compiler_args = args[i+1:]
+            # CodeChecker uses -- but without the actual command line...
+            if len(self._compiler_args) > 0 and self._compiler_args[0].startswith('-') and not '-c' in self._compiler_args:
+                if len(self._clang_tidy_args) > 2 and self._clang_tidy_args[-2] == '--export-fixes':
+                    filename = self._clang_tidy_args[-3]
+                    if os.path.isfile(filename) and _is_src_ext(filename):
+                        self._compiler_args = ['clang'] + self._compiler_args + ['-c', filename]
         elif args.count("-p") == 1:
             # Invoked with compiler args in a compile commands json db
             i = args.index("-p")
