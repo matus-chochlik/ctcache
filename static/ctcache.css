@@ -1,3 +1,8 @@
+.background {
+    background: #0d1117;
+    color: white;
+}
+
 .dashboard {
     font-family: Helvetica;
     display: grid;
