@@ -566,6 +566,7 @@ class ClangTidyCache(object):
         plt.savefig(
             output,
             transparent=True,
+            bbox_inches="tight",
             format=imgfmt
         )
         fig.clear()
@@ -621,6 +622,7 @@ class ClangTidyCache(object):
         plt.savefig(
             output,
             transparent=True,
+            bbox_inches="tight",
             format=imgfmt
         )
         fig.clear()
@@ -663,6 +665,7 @@ class ClangTidyCache(object):
         plt.savefig(
             output,
             transparent=True,
+            bbox_inches="tight",
             format=imgfmt
         )
         fig.clear()
@@ -705,6 +708,7 @@ class ClangTidyCache(object):
         plt.savefig(
             output,
             transparent=True,
+            bbox_inches="tight",
             format=imgfmt
         )
         fig.clear()
