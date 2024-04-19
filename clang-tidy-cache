@@ -27,6 +27,10 @@ except ImportError:
     redis = None
 
 # ------------------------------------------------------------------------------
+def getenv_boolean_flag(name):
+    return os.getenv(name, "0") == "1"
+
+# ------------------------------------------------------------------------------
 class ClangTidyCacheOpts(object):
     # --------------------------------------------------------------------------
     def __init__(self, log, args):
@@ -262,6 +266,10 @@ class ClangTidyCacheOpts(object):
         return os.getenv("CTCACHE_S3_NO_CREDENTIALS", "")
 
     # --------------------------------------------------------------------------
+    def s3_read_only(self):
+        return getenv_boolean_flag("CTCACHE_S3_READ_ONLY")
+
+    # --------------------------------------------------------------------------
     def has_gcs(self):
         return "CTCACHE_GCS_BUCKET" in os.environ
 
@@ -278,12 +286,16 @@ class ClangTidyCacheOpts(object):
         return os.getenv("CTCACHE_GCS_NO_CREDENTIALS", None)
 
     # --------------------------------------------------------------------------
+    def gcs_read_only(self):
+        return getenv_boolean_flag("CTCACHE_GCS_READ_ONLY")
+
+    # --------------------------------------------------------------------------
     def cache_locally(self):
-        return os.getenv("CTCACHE_LOCAL", "0") == "1"
+        return getenv_boolean_flag("CTCACHE_LOCAL")
 
     # --------------------------------------------------------------------------
     def no_local_stats(self):
-        return os.getenv("CTCACHE_NO_LOCAL_STATS", "0") == "1"
+        return getenv_boolean_flag("CTCACHE_NO_LOCAL_STATS")
 
     # --------------------------------------------------------------------------
     def has_host(self):
@@ -302,8 +314,12 @@ class ClangTidyCacheOpts(object):
         return int(os.getenv("CTCACHE_PORT", 5000))
 
     # --------------------------------------------------------------------------
+    def rest_host_read_only(self):
+        return getenv_boolean_flag("CTCACHE_HOST_READ_ONLY")
+
+    # --------------------------------------------------------------------------
     def save_output(self) -> bool:
-        return os.getenv("CTCACHE_SAVE_OUTPUT", "0") == "1"
+        return getenv_boolean_flag("CTCACHE_SAVE_OUTPUT")
 
     # --------------------------------------------------------------------------
     def ignore_output(self) -> bool:
@@ -353,6 +369,10 @@ class ClangTidyCacheOpts(object):
     # --------------------------------------------------------------------------
     def redis_namespace(self) -> str:
         return os.getenv("CTCACHE_REDIS_NAMESPACE", "ctcache/")
+
+    # --------------------------------------------------------------------------
+    def redis_read_only(self):
+        return getenv_boolean_flag("CTCACHE_REDIS_READ_ONLY")
 
 # ------------------------------------------------------------------------------
 class ClangTidyCacheHash(object):
@@ -416,6 +436,8 @@ class ClangTidyServerCache(object):
 
     # --------------------------------------------------------------------------
     def store_in_cache(self, digest):
+        if self._opts.rest_host_read_only():
+            return
         try:
             query = self._requests.get(self._make_store_url(digest), timeout=3)
             if query.status_code == 200:
@@ -710,11 +732,15 @@ class ClangTidyRedisCache(object):
 
     # --------------------------------------------------------------------------
     def store_in_cache(self, digest):
+        if self._opts.redis_read_only():
+            return
         n_digest = self._get_key_from_digest(digest)
         self._cli.set(n_digest, "")
 
     # --------------------------------------------------------------------------
     def store_in_cache_with_data(self, digest, data: bytes):
+        if self._opts.redis_read_only():
+            return
         n_digest = self._get_key_from_digest(digest)
         self._cli.set(n_digest, data)
 
@@ -769,7 +795,7 @@ class ClangTidyS3Cache(object):
 
     # --------------------------------------------------------------------------
     def store_in_cache(self, digest):
-        if self._opts.s3_no_credentials():
+        if self._opts.s3_no_credentials() or self._opts.s3_read_only():
             return
         try:
             path = self._make_path(digest)
@@ -834,7 +860,7 @@ class ClangTidyGcsCache(object):
 
     # --------------------------------------------------------------------------
     def store_in_cache(self, digest):
-        if self._opts.gcs_no_credentials():
+        if self._opts.gcs_no_credentials() or self._opts.gcs_read_only():
             return
         try:
             path = self._make_path(digest)
@@ -847,7 +873,7 @@ class ClangTidyGcsCache(object):
 
     # --------------------------------------------------------------------------
     def store_in_cache_with_data(self, digest, data: bytes):
-        if self._opts.gcs_no_credentials():
+        if self._opts.gcs_no_credentials() or self._opts.gcs_read_only():
             return
         try:
             path = self._make_path(digest)
