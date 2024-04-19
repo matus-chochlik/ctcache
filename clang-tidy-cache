@@ -880,6 +880,9 @@ class ClangTidyCache(object):
         self._opts = opts
         self._caches = []
 
+        if opts.cache_locally():
+            self._caches.append(ClangTidyLocalCache(log, opts))
+
         if opts.has_host():
             self._caches.append(ClangTidyServerCache(log, opts))
 
@@ -892,7 +895,7 @@ class ClangTidyCache(object):
         if opts.has_gcs():
             self._caches.append(ClangTidyGcsCache(log, opts))
 
-        if not self._caches or opts.cache_locally():
+        if not self._caches:
             self._caches.append(ClangTidyLocalCache(log, opts))
 
     # --------------------------------------------------------------------------
