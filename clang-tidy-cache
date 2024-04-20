@@ -904,10 +904,11 @@ class ClangTidyCache(object):
     def __init__(self, log, opts: ClangTidyCacheOpts):
         self._log = log
         self._opts = opts
+        self._local_cache = None
         self._caches = []
 
         if opts.cache_locally():
-            self._caches.append(ClangTidyLocalCache(log, opts))
+            self._add_local_cache(log, opts)
 
         if opts.has_host():
             self._caches.append(ClangTidyServerCache(log, opts))
@@ -922,12 +923,19 @@ class ClangTidyCache(object):
             self._caches.append(ClangTidyGcsCache(log, opts))
 
         if not self._caches:
-            self._caches.append(ClangTidyLocalCache(log, opts))
+            self._add_local_cache(log, opts)
+
+    # --------------------------------------------------------------------------
+    def _add_local_cache(self, log, opts):
+        self._local_cache = ClangTidyLocalCache(log, opts)
+        self._caches.append(self._local_cache)
 
     # --------------------------------------------------------------------------
     def is_cached(self, digest):
         for cache in self._caches:
             if cache.is_cached(digest):
+                if self._local_cache is not None and cache != self._local_cache:
+                    self._local_cache.store_in_cache(digest)
                 return True
 
         return False
@@ -937,6 +945,8 @@ class ClangTidyCache(object):
         for cache in self._caches:
             data = cache.get_cache_data(digest)
             if data is not None:
+                if self._local_cache is not None and cache != self._local_cache:
+                    self._local_cache.store_in_cache_with_data(digest, data)
                 return data
 
         return None
