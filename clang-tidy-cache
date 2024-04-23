@@ -569,7 +569,7 @@ class ClangTidyLocalStats(object):
         if len(content) == 2:
             return int(content[0]), int(content[1])
         else:
-            self._log.error(f"Invalid stats content in: {self.stats_file()}")
+            self._log.error(f"Invalid stats content in: {f.name}")
         return 0,0
 
     # --------------------------------------------------------------------------
