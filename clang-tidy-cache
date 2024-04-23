@@ -556,9 +556,10 @@ class ClangTidyLocalStats(object):
 
     # --------------------------------------------------------------------------
     def read(self):
-        with MultiprocessLock(self.stats_file() + ".lock") as _:
-            if os.path.isfile(self.stats_file()):
-                with open(self.stats_file(), 'r') as f:
+        file = self.stats_file()
+        with MultiprocessLock(file + ".lock") as _:
+            if os.path.isfile(file):
+                with open(file, 'r') as f:
                     return self.read_from_file(f)
             return 0,0
 
@@ -582,16 +583,17 @@ class ClangTidyLocalStats(object):
     # --------------------------------------------------------------------------
     def update(self, hit):
         try:
-            with MultiprocessLock(self.stats_file() + ".lock") as _:
+            file = self.stats_file()
+            with MultiprocessLock(file + ".lock") as _:
                 try:
-                    if os.path.isfile(self.stats_file()):
-                        with open(self.stats_file(), 'r+') as fh:
+                    if os.path.isfile(file):
+                        with open(file, 'r+') as fh:
                             hits, misses = self.read_from_file(fh)
                             fh.seek(0)
                             self.write_to_file(fh, hits, misses, hit)
                             fh.truncate()
                     else:
-                        with open(self.stats_file(), 'w') as fh:
+                        with open(file, 'w') as fh:
                             self.write_to_file(fh, 0, 0, hit)
                 except IOError as e:
                     self._log_error(f"Error writing to file: {e}")
