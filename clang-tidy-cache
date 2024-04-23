@@ -596,7 +596,7 @@ class ClangTidyLocalStats(object):
                         with open(file, 'w') as fh:
                             self.write_to_file(fh, 0, 0, hit)
                 except IOError as e:
-                    self._log_error(f"Error writing to file: {e}")
+                    self._log.error(f"Error writing to file: {e}")
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
             raise
