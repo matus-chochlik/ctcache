@@ -120,6 +120,7 @@ variables:
 |`CTCACHE_SAVE_OUTPUT`       |  ✓   |      | saves the stdout output of `clang-tidy` in the cache     |
 |`CTCACHE_LOCAL`             |  ✓   |      | enables the local cache                                  |
 |`CTCACHE_NO_LOCAL_STATS`    |  ✓   |      | disables keeping local cache statistics                  |
+|`CTCACHE_NO_LOCAL_WRITEBACK`|  ✓   |      | disables storage of remote cache hits to the local cache |
 |`CTCACHE_S3_BUCKET`         |  ✓   |      | the S3 bucket to store cache remotely                    |
 |`CTCACHE_S3_FOLDER`         |  ✓   |      | the prefix directory in S3, w/o leading and trailing `/` |
 |`CTCACHE_S3_NO_CREDENTIALS` |  ✓   |      | if set, script won't try to put objects to S3            |

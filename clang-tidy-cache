@@ -31,6 +31,16 @@ def getenv_boolean_flag(name):
     return os.getenv(name, "0") == "1"
 
 # ------------------------------------------------------------------------------
+def mkdir_p(path):
+    try:
+        os.makedirs(path)
+    except OSError as os_error:
+        if os_error.errno == errno.EEXIST and os.path.isdir(path):
+            pass
+        else:
+            raise
+
+# ------------------------------------------------------------------------------
 class ClangTidyCacheOpts(object):
     # --------------------------------------------------------------------------
     def __init__(self, log, args):
@@ -186,6 +196,13 @@ class ClangTidyCacheOpts(object):
             return False
 
     # --------------------------------------------------------------------------
+    def should_print_stats_raw(self):
+        try:
+            return self._original_args[0] == "--print-stats"
+        except IndexError:
+            return False
+
+    # --------------------------------------------------------------------------
     def should_remove_dir(self):
         try:
             return self._original_args[0] == "--clean"
@@ -296,6 +313,10 @@ class ClangTidyCacheOpts(object):
     # --------------------------------------------------------------------------
     def no_local_stats(self):
         return getenv_boolean_flag("CTCACHE_NO_LOCAL_STATS")
+
+    # --------------------------------------------------------------------------
+    def no_local_writeback(self):
+        return getenv_boolean_flag("CTCACHE_NO_LOCAL_WRITEBACK")
 
     # --------------------------------------------------------------------------
     def has_host(self):
@@ -544,15 +565,16 @@ class MultiprocessLock:
         self.release()
 
 # ------------------------------------------------------------------------------
-class ClangTidyLocalStats(object):
+class ClangTidyCacheStats(object):
     # --------------------------------------------------------------------------
-    def __init__(self, log, opts):
+    def __init__(self, log, opts, name):
         self._log = log
         self._opts = opts
+        self._name = name
 
     # --------------------------------------------------------------------------
     def stats_file(self, digest):
-        return os.path.join(self._opts.cache_dir, digest[:2], "stats")
+        return os.path.join(self._opts.cache_dir, digest[:2], self._name)
 
     # --------------------------------------------------------------------------
     def read(self):
@@ -595,6 +617,7 @@ class ClangTidyLocalStats(object):
     def update(self, digest, hit):
         try:
             file = self.stats_file(digest)
+            mkdir_p(os.path.dirname(file))
             with MultiprocessLock(file + ".lock") as _:
                 try:
                     if os.path.isfile(file):
@@ -627,22 +650,14 @@ class ClangTidyLocalCache(object):
         self._log = log
         self._opts = opts
         self._hash_regex = re.compile(r'^[0-9a-f]{38}$')
-        if opts.no_local_stats():
-            self._stats = None
-        else:
-            self._stats = ClangTidyLocalStats(log, opts)
 
     # --------------------------------------------------------------------------
     def is_cached(self, digest):
         path = self._make_path(digest)
         if os.path.isfile(path):
             os.utime(path, None)
-            if self._stats:
-                self._stats.update(digest, True)
             return True
 
-        if self._stats:
-            self._stats.update(digest, False)
         return False
 
     # --------------------------------------------------------------------------
@@ -650,25 +665,21 @@ class ClangTidyLocalCache(object):
         path = self._make_path(digest)
         if os.path.isfile(path):
             os.utime(path, None)
-            if self._stats:
-                self._stats.update(digest, True)
             with open(path, "rb") as stream:
                 return stream.read()
         else:
-            if self._stats:
-                self._stats.update(digest, False)
             return None
 
     # --------------------------------------------------------------------------
     def store_in_cache(self, digest):
         p = self._make_path(digest)
-        self._mkdir_p(os.path.dirname(p))
+        mkdir_p(os.path.dirname(p))
         open(p, "w").close()
 
     # --------------------------------------------------------------------------
     def store_in_cache_with_data(self, digest, data: bytes):
         p = self._make_path(digest)
-        self._mkdir_p(os.path.dirname(p))
+        mkdir_p(os.path.dirname(p))
         with open(p, "wb") as stream:
             stream.write(data)
 
@@ -685,33 +696,12 @@ class ClangTidyLocalCache(object):
 
     # --------------------------------------------------------------------------
     def query_stats(self, options):
-        if self._stats:
-            hits, misses = self._stats.read()
-            total = hits + misses
-
-            hash_count = sum(1 for x in self._list_cached_files(options, options.cache_dir))
-
-            return {
-                "hit_count": hits,
-                "miss_count": misses,
-                "hit_rate": hits/total if total else 0,
-                "miss_rate": misses/total if total else 0,
-                "cached_count": hash_count}
+        hash_count = sum(1 for x in self._list_cached_files(options, options.cache_dir))
+        return {"cached_count": hash_count}
 
     # --------------------------------------------------------------------------
     def clear_stats(self, options):
-        if self._stats:
-            self._stats.clear()
-
-    # --------------------------------------------------------------------------
-    def _mkdir_p(self, path):
-        try:
-            os.makedirs(path)
-        except OSError as os_error:
-            if os_error.errno == errno.EEXIST and os.path.isdir(path):
-                pass
-            else:
-                raise
+        pass
 
     # --------------------------------------------------------------------------
     def _make_path(self, digest):
@@ -915,30 +905,11 @@ class ClangTidyGcsCache(object):
         return os.path.join(self._bucket_folder, digest[:2], digest[2:])
 
 # ------------------------------------------------------------------------------
-class ClangTidyCache(object):
+class ClangTidyMultiCache(object):
     # --------------------------------------------------------------------------
-    def __init__(self, log, opts: ClangTidyCacheOpts):
+    def __init__(self, log, caches):
         self._log = log
-        self._opts = opts
-        self._caches = []
-
-        if opts.cache_locally():
-            self._caches.append(ClangTidyLocalCache(log, opts))
-
-        if opts.has_host():
-            self._caches.append(ClangTidyServerCache(log, opts))
-
-        if opts.has_redis_host() and redis:
-            self._caches.append(ClangTidyRedisCache(log, opts))
-
-        if opts.has_s3():
-            self._caches.append(ClangTidyS3Cache(log, opts))
-
-        if opts.has_gcs():
-            self._caches.append(ClangTidyGcsCache(log, opts))
-
-        if not self._caches:
-            self._caches.append(ClangTidyLocalCache(log, opts))
+        self._caches = caches
 
     # --------------------------------------------------------------------------
     def is_cached(self, digest):
@@ -980,6 +951,167 @@ class ClangTidyCache(object):
     def clear_stats(self, options):
         for cache in self._caches:
             cache.clear_stats(options)
+
+# ------------------------------------------------------------------------------
+class ClangTidyCacheWithStats(object):
+    # --------------------------------------------------------------------------
+    def __init__(self, log, opts, cache, stats):
+        self._log = log
+        self._opts = opts
+        self._cache = cache
+        self._stats = stats
+
+    # --------------------------------------------------------------------------
+    def is_cached(self, digest):
+        res = self._cache.is_cached(digest)
+        if self._stats:
+            self._stats.update(digest, res)
+        return res
+
+    # --------------------------------------------------------------------------
+    def get_cache_data(self, digest) -> tp.Optional[bytes]:
+        res = self._cache.get_cache_data(digest)
+        if self._stats:
+            self._stats.update(digest, res is not None)
+        return res
+
+    # --------------------------------------------------------------------------
+    def store_in_cache(self, digest):
+        self._cache.store_in_cache(digest)
+
+    # --------------------------------------------------------------------------
+    def store_in_cache_with_data(self, digest, data: bytes):
+        self._cache.store_in_cache_with_data(digest, data)
+
+    # --------------------------------------------------------------------------
+    def query_stats(self, options):
+        stats = self._cache.query_stats(options)
+        if stats is None:
+            stats = {}
+
+        if self._stats:
+            hits, misses = self._stats.read()
+            total = hits + misses
+            stats["hit_count"] = hits
+            stats["miss_count"] = misses
+            stats["hit_rate"] = hits/total if total else 0
+            stats["miss_rate"] = misses/total if total else 0
+
+        return stats
+
+    # --------------------------------------------------------------------------
+    def clear_stats(self, options):
+        self._cache.clear_stats(options)
+        if self._stats:
+            self._stats.clear()
+
+# ------------------------------------------------------------------------------
+class ClangTidyCache(object):
+    # --------------------------------------------------------------------------
+    def __init__(self, log, opts: ClangTidyCacheOpts):
+        self._log = log
+        self._opts = opts
+        self._local = None
+        self._remote = None
+
+        caches = []
+
+        if opts.has_host():
+            caches.append(ClangTidyServerCache(log, opts))
+
+        if opts.has_redis_host() and redis:
+            caches.append(ClangTidyRedisCache(log, opts))
+
+        if opts.has_s3():
+            caches.append(ClangTidyS3Cache(log, opts))
+
+        if opts.has_gcs():
+            caches.append(ClangTidyGcsCache(log, opts))
+
+        if not caches or opts.cache_locally():
+            local = ClangTidyLocalCache(log, opts)
+            self._local = self._wrap_with_stats(local, "stats")
+
+        if caches:
+            remote = ClangTidyMultiCache(log, caches)
+            self._remote = self._wrap_with_stats(remote, "remote_stats")
+
+    # --------------------------------------------------------------------------
+    def _wrap_with_stats(self, cache, name):
+        if not self._opts.no_local_stats():
+            stats = ClangTidyCacheStats(self._log, self._opts, name)
+            return ClangTidyCacheWithStats(self._log, self._opts, cache, stats)
+        return cache
+
+    # --------------------------------------------------------------------------
+    def is_cached(self, digest):
+        if self._local:
+            if self._local.is_cached(digest):
+                return True
+
+        if self._remote:
+            if self._remote.is_cached(digest):
+                if self.should_writeback():
+                    self._local.store_in_cache(digest)
+                return True
+
+        return False
+
+    # --------------------------------------------------------------------------
+    def get_cache_data(self, digest) -> tp.Optional[bytes]:
+        if self._local:
+            data = self._local.get_cache_data(digest)
+            if data is not None:
+                return data
+
+        if self._remote:
+            data = self._remote.get_cache_data(digest)
+            if data is not None:
+                if self.should_writeback():
+                    self._local.store_in_cache_with_data(digest, data)
+                return data
+
+        return None
+
+    # --------------------------------------------------------------------------
+    def store_in_cache(self, digest):
+        if self._local:
+            self._local.store_in_cache(digest)
+
+        if self._remote:
+            self._remote.store_in_cache(digest)
+
+    # --------------------------------------------------------------------------
+    def store_in_cache_with_data(self, digest, data: bytes):
+        if self._local:
+            self._local.store_in_cache_with_data(digest, data)
+
+        if self._remote:
+            self._remote.store_in_cache_with_data(digest, data)
+
+    # --------------------------------------------------------------------------
+    def query_stats(self, options):
+        stats = {}
+
+        if self._local:
+            stats["local"] = self._local.query_stats(options)
+
+        if self._remote:
+            stats["remote"] = self._remote.query_stats(options)
+
+        return stats
+
+    # --------------------------------------------------------------------------
+    def clear_stats(self, options):
+        if self._local:
+            self._local.clear_stats(options)
+
+        if self._remote:
+            self._remote.clear_stats(options)
+
+    # --------------------------------------------------------------------------
+    def should_writeback(self):
+        return self._local is not None and not self._opts.no_local_writeback()
 
 # ------------------------------------------------------------------------------
 source_file_change_re = re.compile(r'#\s+\d+\s+"([^"]+)".*')
@@ -1087,7 +1219,7 @@ def hash_inputs(log, opts):
     return result.hexdigest()
 
 # ------------------------------------------------------------------------------
-def print_stats(log, opts):
+def print_stats(log, opts, raw):
     def _format_bytes(s):
         if s < 10000:
             return "%d B" % (s)
@@ -1110,25 +1242,32 @@ def print_stats(log, opts):
 
     cache = ClangTidyCache(log, opts)
     stats = cache.query_stats(opts)
+
+    if raw:
+        print(json.dumps(stats))
+        return
+
     entries = [
         ("Server host", lambda o, s: o.rest_host()),
         ("Server port", lambda o, s: "%d" % o.rest_port()),
-        ("Long-term hit rate", lambda o, s: "%.1f %%" %
-         (s["total_hit_rate"] * 100.0)),
-        ("Hit rate", lambda o, s: "%.1f %%" % (s["hit_rate"] * 100.0)),
-        ("Hit count", lambda o, s: "%d" % s["hit_count"]),
-        ("Miss count", lambda o, s: "%d" % s["miss_count"]),
-        ("Miss rate", lambda o, s: "%.1f %%" % (s["miss_rate"] * 100.0)),
-        ("Max hash age", lambda o, s: "%d days" %
-         max(int(k) for k in s["age_days_histogram"])),
-        ("Max hash hits", lambda o, s: "%d" % max(int(k)
-         for k in s["hit_count_histogram"])),
-        ("Cache size", lambda o, s: _format_bytes(s["saved_size_bytes"])),
-        ("Cached hashes", lambda o, s: "%d" % s["cached_count"]),
-        ("Cleaned hashes", lambda o, s: "%d" % s["cleaned_count"]),
-        ("Cleaned ago", lambda o, s: _format_time(s["cleaned_seconds_ago"])),
-        ("Saved ago", lambda o, s: _format_time(s["saved_seconds_ago"])),
-        ("Uptime", lambda o, s: _format_time(s["uptime_seconds"]))
+        ("Long-term hit rate", lambda o, s: "%.1f %%" % (s["remote"]["total_hit_rate"] * 100.0)),
+        ("Hit rate", lambda o, s: "%.1f %%" % (s["remote"]["hit_rate"] * 100.0)),
+        ("Hit count", lambda o, s: "%d" % s["remote"]["hit_count"]),
+        ("Miss count", lambda o, s: "%d" % s["remote"]["miss_count"]),
+        ("Miss rate", lambda o, s: "%.1f %%" % (s["remote"]["miss_rate"] * 100.0)),
+        ("Max hash age", lambda o, s: "%d days" % max(int(k) for k in s["remote"]["age_days_histogram"])),
+        ("Max hash hits", lambda o, s: "%d" % max(int(k) for k in s["remote"]["hit_count_histogram"])),
+        ("Cache size", lambda o, s: _format_bytes(s["remote"]["saved_size_bytes"])),
+        ("Cached hashes", lambda o, s: "%d" % s["remote"]["cached_count"]),
+        ("Cleaned hashes", lambda o, s: "%d" % s["remote"]["cleaned_count"]),
+        ("Cleaned ago", lambda o, s: _format_time(s["remote"]["cleaned_seconds_ago"])),
+        ("Saved ago", lambda o, s: _format_time(s["remote"]["saved_seconds_ago"])),
+        ("Uptime", lambda o, s: _format_time(s["remote"]["uptime_seconds"])),
+        ("Hit rate (local)", lambda o, s: "%.1f %%" % (s["local"]["hit_rate"] * 100.0)),
+        ("Hit count (local)", lambda o, s: "%d" % s["local"]["hit_count"]),
+        ("Miss count (local)", lambda o, s: "%d" % s["local"]["miss_count"]),
+        ("Miss rate (local)", lambda o, s: "%.1f %%" % (s["local"]["miss_rate"] * 100.0)),
+        ("Cached hashes (local)", lambda o, s: "%d" % s["local"]["cached_count"])
     ]
 
     max_len = max(len(e[0]) for e in entries)
@@ -1207,7 +1346,9 @@ def main():
             except FileNotFoundError:
                 pass
         elif opts.should_print_stats():
-            print_stats(log, opts)
+            print_stats(log, opts, False)
+        elif opts.should_print_stats_raw():
+            print_stats(log, opts, True)
         elif opts.should_zero_stats():
             clear_stats(log, opts)
         else:
