@@ -551,14 +551,26 @@ class ClangTidyLocalStats(object):
         self._opts = opts
 
     # --------------------------------------------------------------------------
-    def stats_file(self):
-        return os.path.join(self._opts.cache_dir, "stats")
+    def stats_file(self, digest):
+        return os.path.join(self._opts.cache_dir, digest[:2], "stats")
 
     # --------------------------------------------------------------------------
     def read(self):
-        with MultiprocessLock(self.stats_file() + ".lock") as _:
-            if os.path.isfile(self.stats_file()):
-                with open(self.stats_file(), 'r') as f:
+        hits, misses = 0, 0
+        for i in range(0, 256):
+            digest = f'{i:x}'
+            file = self.stats_file(digest)
+            if os.path.isfile(file):
+                h, m = self._read(file)
+                hits += h
+                misses += m
+        return hits, misses
+
+    # --------------------------------------------------------------------------
+    def _read(self, file):
+        with MultiprocessLock(file + ".lock") as _:
+            if os.path.isfile(file):
+                with open(file, 'r') as f:
                     return self.read_from_file(f)
             return 0,0
 
@@ -568,7 +580,7 @@ class ClangTidyLocalStats(object):
         if len(content) == 2:
             return int(content[0]), int(content[1])
         else:
-            self._log.error(f"Invalid stats content in: {self.stats_file()}")
+            self._log.error(f"Invalid stats content in: {f.name}")
         return 0,0
 
     # --------------------------------------------------------------------------
@@ -580,29 +592,33 @@ class ClangTidyLocalStats(object):
         f.write(f"{hits} {misses}\n")
 
     # --------------------------------------------------------------------------
-    def update(self, hit):
+    def update(self, digest, hit):
         try:
-            with MultiprocessLock(self.stats_file() + ".lock") as _:
+            file = self.stats_file(digest)
+            with MultiprocessLock(file + ".lock") as _:
                 try:
-                    if os.path.isfile(self.stats_file()):
-                        with open(self.stats_file(), 'r+') as fh:
+                    if os.path.isfile(file):
+                        with open(file, 'r+') as fh:
                             hits, misses = self.read_from_file(fh)
                             fh.seek(0)
                             self.write_to_file(fh, hits, misses, hit)
                             fh.truncate()
                     else:
-                        with open(self.stats_file(), 'w') as fh:
+                        with open(file, 'w') as fh:
                             self.write_to_file(fh, 0, 0, hit)
                 except IOError as e:
-                    self._log_error(f"Error writing to file: {e}")
+                    self._log.error(f"Error writing to file: {e}")
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
             raise
 
     # --------------------------------------------------------------------------
     def clear(self):
-        if os.path.exists(self.stats_file()):
-            os.unlink(self.stats_file())
+        for i in range(0, 256):
+            digest = f'{i:x}'
+            file = self.stats_file(digest)
+            if os.path.isfile(file):
+                os.unlink(file)
 
 # ------------------------------------------------------------------------------
 class ClangTidyLocalCache(object):
@@ -622,11 +638,11 @@ class ClangTidyLocalCache(object):
         if os.path.isfile(path):
             os.utime(path, None)
             if self._stats:
-                self._stats.update(True)
+                self._stats.update(digest, True)
             return True
 
         if self._stats:
-            self._stats.update(False)
+            self._stats.update(digest, False)
         return False
 
     # --------------------------------------------------------------------------
@@ -635,12 +651,12 @@ class ClangTidyLocalCache(object):
         if os.path.isfile(path):
             os.utime(path, None)
             if self._stats:
-                self._stats.update(True)
+                self._stats.update(digest, True)
             with open(path, "rb") as stream:
                 return stream.read()
         else:
             if self._stats:
-                self._stats.update(False)
+                self._stats.update(digest, False)
             return None
 
     # --------------------------------------------------------------------------
