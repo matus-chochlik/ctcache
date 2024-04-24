@@ -113,17 +113,32 @@ variables:
 |`CTCACHE_SKIP`              |  ✓   |      | disables analysis altogether, returns OK                 |
 |`CTCACHE_STRIP`             |  ✓   |      | list of strings stripped from inputs                     |
 |`CTCACHE_DUMP`              |  ✓   |      | dumps all hash inputs into a file                        |
+|`CTCACHE_DUMP_DIR`          |  ✓   |      | the directory to dump diagnostic info                    |
+|`CTCACHE_DEBUG`             |  ✓   |      | enables debugging output                                 |
 |`CTCACHE_DIR`               |  ✓   |      | the cache storage directory in local mode                |
+|`CTCACHE_EXCLUDE_HASH_REGEX`|  ✓   |      | regular expression of hashes that should not be cached   |
+|`CTCACHE_SAVE_OUTPUT`       |  ✓   |      | saves the stdout output of `clang-tidy` in the cache     |
+|`CTCACHE_LOCAL`             |  ✓   |      | enables the local cache                                  |
+|`CTCACHE_NO_LOCAL_STATS`    |  ✓   |      | disables keeping local cache statistics                  |
 |`CTCACHE_S3_BUCKET`         |  ✓   |      | the S3 bucket to store cache remotely                    |
 |`CTCACHE_S3_FOLDER`         |  ✓   |      | the prefix directory in S3, w/o leading and trailing `/` |
 |`CTCACHE_S3_NO_CREDENTIALS` |  ✓   |      | if set, script won't try to put objects to S3            |
+|`CTCACHE_S3_READ_ONLY`      |  ✓   |      | if set, script won't try to put objects to S3            |
 |`CTCACHE_PROTO`             |  ✓   |      | protocol for connecting to the server                    |
 |`CTCACHE_HOST`              |  ✓   |  ✓   | hostname or IP address of the server                     |
+|`CTCACHE_HOST_READ_ONLY`    |  ✓   |      | if set, script won't try to push objects to server       |
 |`CTCACHE_PORT`              |  ✓   |  ✓   | listening port of the server                             |
-|`CTCACHE_WEBROOT`           |      |  ✓   | directory containin static server files                  |
+|`CTCACHE_WEBROOT`           |      |  ✓   | directory containing static server files                 |
 |`CTCACHE_GCS_BUCKET`        |  ✓   |      | the Google Cloud Storage bucket to store cache remotely  |
 |`CTCACHE_GCS_FOLDER`        |  ✓   |      | the prefix in GCS, w/o leading and trailing `/`          |
 |`CTCACHE_GCS_NO_CREDENTIALS`|  ✓   |      | if set, script won't try to put objects to GCS           |
+|`CTCACHE_GCS_READ_ONLY`     |  ✓   |      | if set, script won't try to put objects to GCS           |
+|`CTCACHE_REDIS_HOST`        |  ✓   |      | hostname or IP address of Redis server                   |
+|`CTCACHE_REDIS_PORT`        |  ✓   |      | port of the Redis server (default 6379)                  |
+|`CTCACHE_REDIS_USERNAME`    |  ✓   |      | user name to connect to the Redis server                 |
+|`CTCACHE_REDIS_PASSWORD`    |  ✓   |      | password to connect to the Redis server                  |
+|`CTCACHE_REDIS_NAMESPACE`   |  ✓   |      | namespace to store objects in Redis (default `/ctcache`) |
+|`CTCACHE_REDIS_READ_ONLY`   |  ✓   |      | if set, script won't try to put objects to Redis         |
 
 
 ### The dashboard
