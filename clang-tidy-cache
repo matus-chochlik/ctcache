@@ -250,6 +250,12 @@ class ClangTidyCacheOpts(object):
         )
         return self._cache_dir
 
+     # --------------------------------------------------------------------------
+    def strip_paths(self, input):
+        for item in self._strip_list:
+            input = re.sub(item, '', input)
+        return input
+
     # --------------------------------------------------------------------------
     def adjust_chunk(self, x):
         x = x.strip()
@@ -259,8 +265,7 @@ class ClangTidyCacheOpts(object):
                 w = w.strip('"')
                 if os.path.exists(w):
                     w = os.path.realpath(w)
-                for item in self._strip_list:
-                    w = w.replace(item, '')
+                w = self.strip_paths(w)
                 w.strip()
                 if w:
                     r += w.encode("utf8")
@@ -357,6 +362,10 @@ class ClangTidyCacheOpts(object):
     # --------------------------------------------------------------------------
     def dump_dir(self):
         return os.getenv("CTCACHE_DUMP_DIR", tempfile.gettempdir())
+
+    # --------------------------------------------------------------------------
+    def strip_src(self):
+        return os.getenv("CTCACHE_STRIP_SRC", "False").lower() in ["true", "1", "yes", "y", "on"]
 
     # --------------------------------------------------------------------------
     def exclude_hash_regex(self):
@@ -1150,7 +1159,12 @@ def hash_inputs(log, opts):
         for arg in ct_args[1:]:
             if os.path.exists(arg) and _is_src_ext(arg):
                 with open(arg, "rb") as srcfd:
-                    result.update(srcfd.read())
+                    src_data_binary = srcfd.read()
+                    if opts.strip_src():
+                        src_data = src_data_binary.decode(encoding="utf-8")
+                        src_data = opts.strip_paths(src_data)
+                        src_data_binary = src_data.encode("utf-8")
+                    result.update(src_data_binary)
     else:
         # Execute the compiler command defined by the compiler arguments. At this
         # point if we have compiler arguments with expect that it defines a valid
@@ -1169,6 +1183,11 @@ def hash_inputs(log, opts):
             if stderr:
                 log.error(f"Error executing compile command: #{co_args}.\n#{stderr}")
                 return None
+
+        if opts.strip_src():
+            stdout_str = stdout.decode(encoding="utf-8")
+            stdout_str = opts.strip_paths(stdout_str)
+            stdout = stdout_str.encode("utf-8")
 
         result.update(stdout)
 

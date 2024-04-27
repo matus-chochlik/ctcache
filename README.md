@@ -70,6 +70,9 @@ This can be changed by a command-line option.
 Invoke `clang-tidy-cache-server` with the `--help` argument to see all available
 command-line options.
 
+> [!NOTE]
+> To effectively share cache between clients you will likely need to use the `CTCACHE_STRIP` option. More information in the [overview presentation (Extras section)](doc/overview.pdf) ([See Also](#see-also) section).
+
 #### As systemd service
 
 The `systemd/` sub-directory also contains service file(s) that can be used
@@ -112,6 +115,7 @@ variables:
 |`CTCACHE_DISABLE`           |  ✓   |      | disables cache, always runs `clang-tidy`                 |
 |`CTCACHE_SKIP`              |  ✓   |      | disables analysis altogether, returns OK                 |
 |`CTCACHE_STRIP`             |  ✓   |      | list of strings stripped from inputs                     |
+|`CTCACHE_STRIP_SRC`         |  ✓   |      | If set to true, apply strip paths to source code as well |
 |`CTCACHE_DUMP`              |  ✓   |      | dumps all hash inputs into a file                        |
 |`CTCACHE_DUMP_DIR`          |  ✓   |      | the directory to dump diagnostic info                    |
 |`CTCACHE_DEBUG`             |  ✓   |      | enables debugging output                                 |
