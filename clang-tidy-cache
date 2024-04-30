@@ -28,7 +28,7 @@ except ImportError:
 
 # ------------------------------------------------------------------------------
 def getenv_boolean_flag(name):
-    return os.getenv(name, "0") == "1"
+    return os.getenv(name, "0").lower() in ["true", "1", "yes", "y", "on"]
 
 # ------------------------------------------------------------------------------
 def mkdir_p(path):
@@ -353,11 +353,11 @@ class ClangTidyCacheOpts(object):
 
     # --------------------------------------------------------------------------
     def debug_enabled(self):
-        return "CTCACHE_DEBUG" in os.environ
+        return getenv_boolean_flag("CTCACHE_DEBUG")
 
     # --------------------------------------------------------------------------
     def dump_enabled(self):
-        return "CTCACHE_DUMP" in os.environ
+        return getenv_boolean_flag("CTCACHE_DUMP")
 
     # --------------------------------------------------------------------------
     def dump_dir(self):
@@ -365,7 +365,7 @@ class ClangTidyCacheOpts(object):
 
     # --------------------------------------------------------------------------
     def strip_src(self):
-        return os.getenv("CTCACHE_STRIP_SRC", "False").lower() in ["true", "1", "yes", "y", "on"]
+        return getenv_boolean_flag("CTCACHE_STRIP_SRC")
 
     # --------------------------------------------------------------------------
     def exclude_hash_regex(self):
