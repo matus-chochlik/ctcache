@@ -36,7 +36,7 @@ Repository = "https://github.com/matus-chochlik/ctcache"
 
 [project.scripts]
 # TODO: Should clang-tidy-cache-server be added here as well?
-clang-tidy-cache = "ctcache.clang-tidy-cache:main"
+clang-tidy-cache = "ctcache.clang_tidy_cache:main"
 
 # Necessary for setuptools-scm to work
 [tool.setuptools_scm]
