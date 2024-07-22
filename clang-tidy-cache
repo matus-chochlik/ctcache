@@ -93,6 +93,12 @@ class ClangTidyCacheOpts(object):
         return False
 
     # --------------------------------------------------------------------------
+    def running_on_clang_cl(self):
+        if self._compiler_args:
+           return os.path.basename(self._compiler_args[0]) == "clang-cl.exe"
+        return False
+
+    # --------------------------------------------------------------------------
     def _split_compiler_clang_tidy_args(self, args):
         # splits arguments starting with - on the first =
         args = [arg.split('=', 1) if arg.startswith('-p') else [arg] for arg in args]
@@ -1176,7 +1182,7 @@ def hash_inputs(log, opts):
             stderr=subprocess.PIPE
         )
         stdout, stderr = proc.communicate()
-        if opts.running_on_msvc():
+        if opts.running_on_msvc() or opts.running_on_clang_cl():
             if proc.returncode != 0:
                 return None
         else:
