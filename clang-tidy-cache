@@ -463,31 +463,35 @@ class ClangTidyServerCache(object):
                         self._opts.rest_host(), query.status_code))
         except:
             pass
+
         return False
 
     # --------------------------------------------------------------------------
     def get_cache_data(self, digest) -> tp.Optional[bytes]:
-        # TODO
+        try:
+            query = self._requests.get(self._make_data_url(digest), timeout=3)
+            if query.status_code == 200:
+                return query.text.encode('UTF-8')
+        except:
+            pass
+
         return None
 
     # --------------------------------------------------------------------------
     def store_in_cache(self, digest):
+        self.store_in_cache_with_data(digest, bytes())
+
+    # --------------------------------------------------------------------------
+    def store_in_cache_with_data(self, digest, data: bytes):
         if self._opts.rest_host_read_only():
             return
         try:
-            query = self._requests.get(self._make_store_url(digest), timeout=3)
-            if query.status_code == 200:
-                return
-            else:
+            query = self._requests.put(self._make_data_url(digest), data={'data': data}, timeout=3)
+            if query.status_code != 200:
                 self._log.error("store_in_cache: Can't store data in server {0}, error {1}".format(
                     self._opts.rest_host(), query.status_code))
         except:
             pass
-
-    # --------------------------------------------------------------------------
-    def store_in_cache_with_data(self, digest, data: bytes):
-        # TODO
-        pass
 
     # --------------------------------------------------------------------------
     def query_stats(self, options):
@@ -517,7 +521,7 @@ class ClangTidyServerCache(object):
         }
 
     # --------------------------------------------------------------------------
-    def _make_store_url(self, digest):
+    def _make_data_url(self, digest):
         return "%(proto)s://%(host)s:%(port)d/cache/%(digest)s" % {
             "proto": self._opts.rest_proto(),
             "host": self._opts.rest_host(),
