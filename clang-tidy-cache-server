@@ -42,6 +42,15 @@ class ArgumentParser(argparse.ArgumentParser):
             except TypeError:
                 self.error("cleanup interval must be a numeric value not less than 1")
 
+        def max_cache_size(x):
+            try:
+                p = int(float(x) * 2 ** 30)
+                if (p > 0):
+                    return p
+                self.error("'%f' is not a valid max cache size" % (p))
+            except TypeError:
+                self.error("max cache size must be a numeric value greater than 0")
+
         def port_number(x):
             try:
                 p = int(x)
@@ -129,6 +138,17 @@ class ArgumentParser(argparse.ArgumentParser):
         )
 
         self.add_argument(
+            "--max-cache-size", "-M",
+            dest="max_cache_size",
+            metavar="NUMBER",
+            type=max_cache_size,
+            default=5,
+            help="""
+            Specifies the max size of cached file in gigabytes.
+            """
+        )
+
+        self.add_argument(
             "--debug", "-D",
             dest="debug_mode",
             action="store_true",
@@ -155,6 +175,36 @@ def get_argument_parser():
         description="""server maintaining cached values for clang-tidy-cache"""
     )
 # ------------------------------------------------------------------------------
+class CacheFile():
+    # -------------------------------------------------------------------------
+    @staticmethod
+    def get_cache_file_path(hashstr):
+        return os.path.join(ctcache_app.config["CACHE_FOLDER"], hashstr)
+
+    # -------------------------------------------------------------------------
+    def __init__(self, hashstr):
+        self._filepath = self.get_cache_file_path(hashstr)
+        self._hashstr = hashstr
+        self._data = bytes()
+
+    # -------------------------------------------------------------------------
+    def save(self, data):
+        f = open(self._filepath, 'w')
+        f.write(data)
+        f.close()
+
+    # -------------------------------------------------------------------------
+    def remove(self):
+        os.remove(self._filepath)
+
+    # -------------------------------------------------------------------------
+    def size(self):
+        return os.path.getsize(self._filepath)
+
+    # -------------------------------------------------------------------------
+    def mtime(self):
+        return os.path.mtime(self._filepath)
+# ------------------------------------------------------------------------------
 class ClangTidyCacheApp(flask.Flask):
     # --------------------------------------------------------------------------
     @staticmethod
@@ -166,9 +216,23 @@ class ClangTidyCacheApp(flask.Flask):
             'static'
         )
     # --------------------------------------------------------------------------
+    @staticmethod
+    def get_cache_folder():
+        return os.path.join(
+            os.path.realpath(
+                os.environ.get('CTCACHE_WEBROOT', os.path.dirname(__file__))
+            ),
+            'cache'
+        )
+    # --------------------------------------------------------------------------
     def __init__(self):
         flask.Flask.__init__(self, "clang-tidy-cache")
+
         self.config["STATIC_FOLDER"] = self.get_static_folder()
+        os.makedirs(self.config["STATIC_FOLDER"], exist_ok=True)
+
+        self.config["CACHE_FOLDER"] = self.get_cache_folder()
+        os.makedirs(self.config["CACHE_FOLDER"], exist_ok=True)
 
 # ------------------------------------------------------------------------------
 clang_tidy_cache = None
@@ -189,6 +253,7 @@ class ClangTidyCache(object):
         self._stats_save_interval = options.stats_save_interval
         self._stats_path = options.stats_path
         self._chart_path = options.chart_path
+        self._max_cache_size = options.max_cache_size
         #
         self._info_getters = {
             "static_path": self.static_path,
@@ -197,6 +262,7 @@ class ClangTidyCache(object):
         self._stat_getters = {
             "uptime_seconds": self.uptime_seconds,
             "saved_size_bytes": self.save_file_size,
+            "saved_cache_size": self.save_cache_size,
             "saved_seconds_ago": self.saved_seconds_ago,
             "cleaned_seconds_ago": self.cleaned_seconds_ago,
             "total_hit_rate": self.total_hit_rate,
@@ -245,9 +311,50 @@ class ClangTidyCache(object):
 
     # --------------------------------------------------------------------------
     def do_purge(self):
+        for hashstr in self._cached:
+            CacheFile(hashstr).remove()
+
         self._cached = dict()
         self.do_save()
         return "success"
+
+    # --------------------------------------------------------------------------
+    def _get_cache_hashstrs(self):
+        d = ctcache_app.config["CACHE_FOLDER"]
+        files = os.listdir(d)
+        return [f for f in files if os.path.isfile(os.path.join(d, f))]
+
+    # --------------------------------------------------------------------------
+    def _remove_cache_file(self, hashstr):
+        CacheFile(hashstr).remove()
+        if hashstr in self._cached:
+            del self._cached[hashstr]
+
+    # --------------------------------------------------------------------------
+    def _do_cleanup_by_metric(self):
+        for hashstr, info in self._cached.items():
+            if not self.keep_cached(hashstr, info):
+                self._remove_cache_file(hashstr)
+
+    # --------------------------------------------------------------------------
+    def _do_cleanup_invalid(self):
+        for hashstr in self._get_cache_hashstrs():
+            if hashstr not in self._cached:
+                CacheFile(hashstr).remove()
+
+    # --------------------------------------------------------------------------
+    def _do_cleanup_least_recently_used(self):
+        saved_cache_size = self.save_cache_size()
+        if saved_cache_size <= self._max_cache_size:
+            return
+
+        cached_items = sorted(self._cached.items(), key = lambda v: v[1]['access_time'])
+        for hashstr, _ in cached_items:
+            if saved_cache_size <= self._max_cache_size:
+                return
+
+            saved_cache_size -= CacheFile(hashstr).size()
+            self._remove_cache_file(hashstr)
 
     # --------------------------------------------------------------------------
     def do_cleanup(self):
@@ -255,12 +362,11 @@ class ClangTidyCache(object):
         stats["timestamp"] = time.time()
         self._stats.append(stats)
         before = len(self._cached)
-        self._cached = {
-            hashstr: info
-            for hashstr, info\
-            in self._cached.items()\
-            if self.keep_cached(hashstr, info)
-        }
+
+        self._do_cleanup_by_metric()
+        self._do_cleanup_invalid()
+        self._do_cleanup_least_recently_used()
+
         after = len(self._cached)
         self._cleaned_count += (before - after)
 
@@ -324,7 +430,9 @@ class ClangTidyCache(object):
         return self._hash_re.match(hashstr)
 
     # --------------------------------------------------------------------------
-    def cache(self, hashstr):
+    def cache(self, hashstr, data):
+        CacheFile(hashstr).save(data)
+
         try:
             info = self._cached[hashstr]
             info["access_time"] = time.time()
@@ -419,6 +527,18 @@ class ClangTidyCache(object):
     def save_file_size(self):
         try: return os.path.getsize(self.save_path())
         except: return 0
+
+    # --------------------------------------------------------------------------
+    def save_cache_size(self):
+        size = 0
+
+        d = ctcache_app.config["CACHE_FOLDER"]
+        for f in os.listdir(d):
+            absolute_path = os.path.join(d, f)
+            if os.path.isfile(absolute_path):
+                size += os.path.getsize(absolute_path)
+
+        return size
 
     # --------------------------------------------------------------------------
     def static_path(self):
@@ -718,13 +838,31 @@ class ClangTidyCache(object):
         return output
 
 # ------------------------------------------------------------------------------
-@ctcache_app.route("/cache/<hashstr>")
+@ctcache_app.route("/cache/<hashstr>", methods=['GET', 'PUT'])
 def ctc_cache(hashstr):
-    if clang_tidy_cache.is_valid_hash(hashstr):
-        clang_tidy_cache.cache(hashstr)
+    if not clang_tidy_cache.is_valid_hash(hashstr):
+        return flask.abort(400)
+
+    if flask.request.method == 'GET':
+        if not clang_tidy_cache.is_cached(hashstr):
+            flask.abort(404)
+
+        try:
+            return flask.send_from_directory(
+                directory=ctcache_app.config["CACHE_FOLDER"],
+                path=hashstr,
+                download_name=hashstr,
+                as_attachment=False
+            )
+        except FileNotFoundError:
+            flask.abort(500)
+
+    if flask.request.method == 'PUT':
+        data = flask.request.form['data']
+        clang_tidy_cache.cache(hashstr, data)
         return "true"
-    else:
-        return "invalid hash"
+
+    return flask.abort(500)
 # ------------------------------------------------------------------------------
 @ctcache_app.route("/is_cached/<hashstr>")
 def ctc_is_cached(hashstr):
