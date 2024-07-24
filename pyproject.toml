@@ -1,0 +1,42 @@
+[build-system]
+requires = [
+    "setuptools >= 61.0",          # For pyproject.toml support
+    "setuptools-scm[toml] >= 6.2", # Because setuptools-scm's README says so
+]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ctcache"
+# setuptools-scm computes the version dynamically based on git tags
+dynamic = ["version"]
+description = "Cache for clang-tidy static analysis results"
+readme = "README.md"
+license = { file = "LICENSE" }
+authors = [{ name = "Matus Chochlik", email = "chochlik@gmail.com" }]
+maintainers = [{ name = "Matus Chochlik", email = "chochlik@gmail.com" }]
+# For setuptools-scm
+requires-python = ">= 3.7"
+dependencies = ["flask>=2.0.0", "requests"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: Boost Software License 1.0 (BSL-1.0)",
+    "Operating System :: OS Independent",
+]
+
+[project.optional-dependencies]
+# TODO: Packages like redis or boto3 seem like optional dependencies that should probably be listed
+# here, but I am too lazy to figure all of that out and invent sensible names for the options
+server = ["gevent", "WSGIserver", "matplotlib"]
+tools = ["matplotlib"]
+
+[project.urls]
+Homepage = "https://github.com/matus-chochlik/ctcache"
+Repository = "https://github.com/matus-chochlik/ctcache"
+"Bug Tracker" = "https://github.com/matus-chochlik/ctcache/issues"
+
+[project.scripts]
+# TODO: Should clang-tidy-cache-server be added here as well?
+clang-tidy-cache = "ctcache.clang_tidy_cache:main"
+
+# Necessary for setuptools-scm to work
+[tool.setuptools_scm]
