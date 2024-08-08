@@ -358,6 +358,10 @@ class ClangTidyCacheOpts(object):
         return self.save_output() or "CTCACHE_IGNORE_OUTPUT" in os.environ
 
     # --------------------------------------------------------------------------
+    def save_all(self) -> bool:
+        return self.save_output() or "CTCACHE_SAVE_ALL" in os.environ
+
+    # --------------------------------------------------------------------------
     def debug_enabled(self):
         return getenv_boolean_flag("CTCACHE_DEBUG")
 
@@ -1321,8 +1325,9 @@ def run_clang_tidy_cached(log, opts):
         if digest and opts.save_output():
             data = cache.get_cache_data(digest)
             if data is not None:
-                sys.stdout.write(data.decode("utf8"))
-                return 0
+                returncode = int(data[0])
+                sys.stdout.write(data[1:].decode("utf8"))
+                return returncode
         elif digest and cache.is_cached(digest):
             return 0
         else:
@@ -1346,10 +1351,16 @@ def run_clang_tidy_cached(log, opts):
     if stdout and not opts.ignore_output():
         tidy_success = False
 
-    if tidy_success and digest:
+    # saving the result even in case clang-tidy wasn't successful is only meaningful
+    # if the output is actually stored. Only then the exit code can be retained
+    # (as the first byte in the corresponding key's value)
+    save_even_without_success = opts.save_all() and opts.save_output()
+
+    if (tidy_success or save_even_without_success) and digest:
         try:
             if opts.save_output():
-                cache.store_in_cache_with_data(digest, stdout)
+                returncode_and_ct_output = bytes([proc.returncode]) + stdout
+                cache.store_in_cache_with_data(digest, returncode_and_ct_output)
             else:
                 cache.store_in_cache(digest)
         except Exception as error:
