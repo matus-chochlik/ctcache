@@ -21,7 +21,9 @@ done
 
 CTCACHE_CLANG_TIDY="${CTCACHE_CLANG_TIDY:-/usr/bin/clang-tidy}"
 
+python="/usr/bin/env python3"
+
 if [[ ${CTCACHE_DISABLE:-0} -ne 0 ]]
 then "${CTCACHE_CLANG_TIDY}" "${CTCACHE_CLANG_TIDY_OPTS[@]}" "${@}"
-else "$(dirname $(realpath ${0}))/src/ctcache/clang_tidy_cache.py" "${CTCACHE_CLANG_TIDY}" "${CTCACHE_CLANG_TIDY_OPTS[@]}" "${@}"
+else $python "$(dirname $(realpath ${0}))/src/ctcache/clang_tidy_cache.py" "${CTCACHE_CLANG_TIDY}" "${CTCACHE_CLANG_TIDY_OPTS[@]}" "${@}"
 fi
