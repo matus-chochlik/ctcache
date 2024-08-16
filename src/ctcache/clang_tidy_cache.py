@@ -742,14 +742,11 @@ class ClangTidyRedisCache(object):
             port=opts.redis_port(),
             username=opts.redis_username(),
             password=opts.redis_password(),
-
             # the two settings below are used to avoid sending any commands to the Redis
             # server other than AUTH, GET, and SET (to let the ctcache operate with a
             # server configuration giving only minimal permissions to the given user)
             lib_name=None,
-            lib_version=None
-
-        )
+            lib_version=None)
         self._namespace = opts.redis_namespace()
 
     # --------------------------------------------------------------------------
