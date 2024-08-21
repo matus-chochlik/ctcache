@@ -45,23 +45,6 @@ class ClangTidyCacheOpts(object):
     # --------------------------------------------------------------------------
     def __init__(self, log, args):
         self._log = log
-        self._directories_with_clang_tidy = []
-
-        # Define the prefix used to identify directories with clang-tidy
-        prefix = '--directories_with_clang_tidy='
-
-        # Iterate through the command line arguments
-        for index, arg in enumerate(args):
-            if arg.startswith(prefix):
-                # Split the argument using '*' as a separator to get a list
-                # of directories, I used '*' because a folder cannot contain
-                # this character in its name whereas it can contain `,`
-                self._directories_with_clang_tidy = arg[len(prefix):].split('*')
-
-                # Remove the argument because clang-tidy will not like it
-                args.pop(index)
-
-                break
 
         if len(args) < 1:
             self._log.error("Missing arguments")
@@ -221,10 +204,6 @@ class ClangTidyCacheOpts(object):
             return self._original_args[0] == "--zero-stats"
         except IndexError:
             return False
-
-    # --------------------------------------------------------------------------
-    def directories_with_clang_tidy(self):
-        return self._directories_with_clang_tidy
 
     # --------------------------------------------------------------------------
     def original_args(self):
@@ -1201,29 +1180,31 @@ def hash_inputs(log, opts):
 
         result.update(stdout)
 
+    # --- Config Contents ------------------------------------------------------
+    # (as obtained by running clang-tidy with --dump-config flag)
+
+    ct_args_flags = [ ct_args[0] ]
+    source_files = []
+
     for arg in ct_args[1:]:
         if os.path.exists(arg) and _is_src_ext(arg):
-            source_file = os.path.normpath(os.path.realpath(arg))
-            break
+            source_files.append(os.path.normpath(os.path.realpath(arg)))
+        else:
+            ct_args_flags.append(arg)
 
-    # --- Config Contents ------------------------------------------------------
-
-    config_directories = opts.directories_with_clang_tidy()
-    
-    ct_config_paths = set()
-
-    for directory in config_directories:
-        directory = os.path.normpath(directory.strip())
-        common_path = os.path.commonpath([source_file, directory])
-
-        if common_path == directory:
-            ct_config_paths.add(os.path.join(directory, '.clang-tidy'))
-
-    for ct_config in sorted(ct_config_paths):
-        with open(ct_config, "rt") as ct_config:
-            for line in ct_config:
-                chunk = opts.adjust_chunk(line)
-                result.update(chunk)
+    for source_file in sorted(source_files):
+        ct_dump_cfg_source_file = ct_args_flags + [ "--dump-config",  source_file ]
+        proc = subprocess.Popen(
+            ct_dump_cfg_source_file,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE
+        )
+        stdout, stderr = proc.communicate()
+        if (proc.returncode == 0) and (len(stdout) > 0):
+            result.update(stdout)
+        else:
+            msg = f"Failed dumping the clang-tidy config with <{' '.join(ct_dump_cfg_source_file)}>"
+            raise RuntimeError(msg)
 
     # --- Clang-Tidy and Compiler Args -----------------------------------------
 
