@@ -89,13 +89,13 @@ class ClangTidyCacheOpts(object):
     # --------------------------------------------------------------------------
     def running_on_msvc(self):
         if self._compiler_args:
-           return os.path.basename(self._compiler_args[0]) == "cl.exe"
+            return os.path.basename(self._compiler_args[0]) == "cl.exe"
         return False
 
     # --------------------------------------------------------------------------
     def running_on_clang_cl(self):
         if self._compiler_args:
-           return os.path.basename(self._compiler_args[0]) == "clang-cl.exe"
+            return os.path.basename(self._compiler_args[0]) == "clang-cl.exe"
         return False
 
     # --------------------------------------------------------------------------
