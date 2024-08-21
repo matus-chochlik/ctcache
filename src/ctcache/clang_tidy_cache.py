@@ -1151,14 +1151,6 @@ def source_file_changed(cpp_line):
             return os.path.realpath(os.path.dirname(found_path))
 
 # ------------------------------------------------------------------------------
-def find_ct_config(search_path):
-    while search_path and search_path != "/":
-        search_path = os.path.dirname(search_path)
-        ct_config = os.path.join(search_path, '.clang-tidy')
-        if os.path.isfile(ct_config):
-            return ct_config
-
-# ------------------------------------------------------------------------------
 def hash_inputs(log, opts):
     ct_args = opts.clang_tidy_args()
     co_args = opts.compiler_args()
