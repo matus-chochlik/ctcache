@@ -1159,7 +1159,7 @@ def hash_inputs(log, opts):
         return None
 
     def _is_src_ext(s):
-        exts = [".cppm", ".cpp", ".c", ".cc", ".h", ".hpp", ".cxx"] 
+        exts = [".cppm", ".cpp", ".c", ".cc", ".h", ".hpp", ".cxx"]
         return any(s.lower().endswith(ext) for ext in exts)
 
     result = ClangTidyCacheHash(opts)
