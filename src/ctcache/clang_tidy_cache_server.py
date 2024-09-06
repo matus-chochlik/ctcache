@@ -58,7 +58,7 @@ class ArgumentParser(argparse.ArgumentParser):
                     return p
                 self.error("'%d' is not a valid port number" % (p))
             except TypeError:
-                self.error("port number must be an integer value" )
+                self.error("port number must be an integer value")
 
         self.add_argument(
             "--port", "-P",
@@ -68,8 +68,7 @@ class ArgumentParser(argparse.ArgumentParser):
             default=5000,
             help="""
             Specifies the port number (5000) by default.
-            """
-        )
+            """)
 
         self.add_argument(
             "--save-path", "-S",
@@ -79,8 +78,7 @@ class ArgumentParser(argparse.ArgumentParser):
             default=os.path.join(os.path.expanduser("~"), ".cache", "ctcache.json.gz"),
             help="""
             Specifies the path to the persistent save file.
-            """
-        )
+            """)
 
         self.add_argument(
             "--save-interval", "-I",
@@ -90,8 +88,7 @@ class ArgumentParser(argparse.ArgumentParser):
             default=600,
             help="""
             Specifies the cache-data save time interval in seconds.
-            """
-        )
+            """)
 
         self.add_argument(
             "--stats-save-interval", "-Z",
@@ -101,8 +98,7 @@ class ArgumentParser(argparse.ArgumentParser):
             default=3600,
             help="""
             Specifies the statistics save time interval in seconds.
-            """
-        )
+            """)
 
         self.add_argument(
             "--cleanup-interval", "-C",
@@ -112,8 +108,7 @@ class ArgumentParser(argparse.ArgumentParser):
             default=60,
             help="""
             Specifies the cleanup time interval in seconds.
-            """
-        )
+            """)
 
         self.add_argument(
             "--stats-path", "-U",
@@ -123,8 +118,7 @@ class ArgumentParser(argparse.ArgumentParser):
             default=None,
             help="""
             Specifies the path to a directory where statistics should be stored.
-            """
-        )
+            """)
 
         self.add_argument(
             "--chart-path", "-G",
@@ -134,8 +128,7 @@ class ArgumentParser(argparse.ArgumentParser):
             default=None,
             help="""
             Specifies the path to a directory where charts should be stored.
-            """
-        )
+            """)
 
         self.add_argument(
             "--max-cache-size", "-M",
@@ -145,8 +138,7 @@ class ArgumentParser(argparse.ArgumentParser):
             default=5,
             help="""
             Specifies the max size of cached file in gigabytes.
-            """
-        )
+            """)
 
         self.add_argument(
             "--debug", "-D",
@@ -155,8 +147,7 @@ class ArgumentParser(argparse.ArgumentParser):
             default=False,
             help="""
             Starts the service in debug mode.
-            """
-        )
+            """)
 
     # -------------------------------------------------------------------------
     def process_parsed_options(self, options):
@@ -165,15 +156,13 @@ class ArgumentParser(argparse.ArgumentParser):
     # -------------------------------------------------------------------------
     def parse_args(self):
         return self.process_parsed_options(
-            argparse.ArgumentParser.parse_args(self)
-        )
+            argparse.ArgumentParser.parse_args(self))
 
 # ------------------------------------------------------------------------------
 def get_argument_parser():
     return ArgumentParser(
         prog=os.path.basename(__file__),
-        description="""server maintaining cached values for clang-tidy-cache"""
-    )
+        description="""server maintaining cached values for clang-tidy-cache""")
 # ------------------------------------------------------------------------------
 class CacheFile():
     # -------------------------------------------------------------------------
@@ -213,8 +202,7 @@ class ClangTidyCacheApp(flask.Flask):
             os.path.realpath(
                 os.environ.get('CTCACHE_WEBROOT', os.path.dirname(__file__))
             ),
-            'static'
-        )
+            'static')
     # --------------------------------------------------------------------------
     @staticmethod
     def get_cache_folder():
@@ -222,8 +210,7 @@ class ClangTidyCacheApp(flask.Flask):
             os.path.realpath(
                 os.environ.get('CTCACHE_WEBROOT', os.path.dirname(__file__))
             ),
-            'cache'
-        )
+            'cache')
     # --------------------------------------------------------------------------
     def __init__(self):
         flask.Flask.__init__(self, "clang-tidy-cache")
@@ -635,8 +622,7 @@ class ClangTidyCache(object):
             "access": [],
             "color": [],
             "alpha": [],
-            "hits": []
-        }
+            "hits": []}
 
         now = time.time()
         l = len(self._cached)
@@ -677,8 +663,7 @@ class ClangTidyCache(object):
             c="color",
             s="hits",
             data=data,
-            label="Hit count"
-        )
+            label="Hit count")
         spl.legend()
         del data
 
@@ -687,8 +672,7 @@ class ClangTidyCache(object):
             output,
             transparent=True,
             bbox_inches="tight",
-            format=imgfmt
-        )
+            format=imgfmt)
         fig.clear()
         plt.close(fig)
         output.seek(0)
@@ -743,8 +727,7 @@ class ClangTidyCache(object):
             output,
             transparent=True,
             bbox_inches="tight",
-            format=imgfmt
-        )
+            format=imgfmt)
         fig.clear()
         plt.close(fig)
         output.seek(0)
@@ -786,8 +769,7 @@ class ClangTidyCache(object):
             output,
             transparent=True,
             bbox_inches="tight",
-            format=imgfmt
-        )
+            format=imgfmt)
         fig.clear()
         plt.close(fig)
         output.seek(0)
@@ -829,8 +811,7 @@ class ClangTidyCache(object):
             output,
             transparent=True,
             bbox_inches="tight",
-            format=imgfmt
-        )
+            format=imgfmt)
         fig.clear()
         plt.close(fig)
         output.seek(0)
@@ -909,8 +890,7 @@ def ctc_saved_stats():
     try:
         return flask.Response(
             clang_tidy_cache.stream_saved_stats(),
-            mimetype="application/json"
-        )
+            mimetype="application/json")
     except Exception as error:
         return str(error)
 # ------------------------------------------------------------------------------
@@ -919,8 +899,7 @@ def ctc_image_age_hits_scatter():
     try:
         return flask.send_file(
             clang_tidy_cache.age_hits_scatter_img(),
-            mimetype="image/svg+xml"
-        )
+            mimetype="image/svg+xml")
     except Exception as error:
         return str(error)
 # ------------------------------------------------------------------------------
@@ -929,8 +908,7 @@ def ctc_image_hits_histogram():
     try:
         return flask.send_file(
             clang_tidy_cache.hits_histogram_img(),
-            mimetype="image/svg+xml"
-        )
+            mimetype="image/svg+xml")
     except Exception as error:
         return str(error)
 # ------------------------------------------------------------------------------
@@ -939,8 +917,7 @@ def ctc_image_total_hits_histogram():
     try:
         return flask.send_file(
             clang_tidy_cache.total_hits_histogram_img(),
-            mimetype="image/svg+xml"
-        )
+            mimetype="image/svg+xml")
     except Exception as error:
         return str(error)
 # ------------------------------------------------------------------------------
@@ -949,8 +926,7 @@ def ctc_image_age_histogram():
     try:
         return flask.send_file(
             clang_tidy_cache.days_histogram_img(),
-            mimetype="image/svg+xml"
-        )
+            mimetype="image/svg+xml")
     except Exception as error:
         return str(error)
 # ------------------------------------------------------------------------------
@@ -961,8 +937,7 @@ def ctc_static_file(file_name):
             directory=ctcache_app.config["STATIC_FOLDER"],
             path=file_name,
             download_name=file_name,
-            as_attachment=False
-        )
+            as_attachment=False)
     except FileNotFoundError:
         flask.abort(404)
 # ------------------------------------------------------------------------------
@@ -978,8 +953,7 @@ if __name__ == "__main__":
         ctcache_app.run(
             debug=True,
             host="0.0.0.0",
-            port=options.port_number
-        )
+            port=options.port_number)
     else:
         from gevent.pywsgi import WSGIServer
         srvr = WSGIServer(("0.0.0.0", options.port_number), ctcache_app)
