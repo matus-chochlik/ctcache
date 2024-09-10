@@ -16,7 +16,6 @@ import tempfile
 import subprocess
 import json
 import shlex
-import sys
 import time
 import traceback
 import typing as tp
@@ -148,7 +147,7 @@ class ClangTidyCacheOpts(object):
 
     # --------------------------------------------------------------------------
     def _compiler_args_for(self, filename):
-        if self._compile_commands_db == None:
+        if self._compile_commands_db is None:
             return []
 
         filename = os.path.expanduser(filename)
@@ -437,9 +436,9 @@ class ClangTidyServerCache(object):
         try:
             query = self._requests.get(self._make_query_url(digest), timeout=3)
             if query.status_code == 200:
-                if query.json() == True:
+                if query.json() is True:
                     return True
-                elif query.json() == False:
+                elif query.json() is False:
                     return False
                 else:
                     self._log.error("is_cached: Can't connect to server {0}, error {1}".format(
