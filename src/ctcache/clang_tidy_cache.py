@@ -134,6 +134,8 @@ class ClangTidyCacheOpts(object):
                         self._compiler_args[i-1] = "-EP"
                     else:
                         self._compiler_args.insert(i, "-P")
+                    if self.keep_comments():
+                        self._compiler_args.insert(i, "-C")
 
     # --------------------------------------------------------------------------
     def _load_compile_command_db(self, filename):
@@ -354,6 +356,10 @@ class ClangTidyCacheOpts(object):
     # --------------------------------------------------------------------------
     def strip_src(self):
         return getenv_boolean_flag("CTCACHE_STRIP_SRC")
+
+    # --------------------------------------------------------------------------
+    def keep_comments(self):
+        return getenv_boolean_flag("CTCACHE_KEEP_COMMENTS")
 
     # --------------------------------------------------------------------------
     def exclude_hash_regex(self):
