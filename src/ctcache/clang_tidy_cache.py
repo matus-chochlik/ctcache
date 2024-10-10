@@ -391,6 +391,14 @@ class ClangTidyCacheOpts(object):
         return os.getenv("CTCACHE_REDIS_PASSWORD", "")
 
     # --------------------------------------------------------------------------
+    def redis_connect_timeout(self) -> float:
+        return float(os.getenv("CTCACHE_REDIS_CONNECT_TIMEOUT", "0.1"))
+
+    # --------------------------------------------------------------------------
+    def redis_socket_timeout(self) -> float:
+        return float(os.getenv("CTCACHE_REDIS_OPERATION_TIMEOUT", "10.0"))
+
+    # --------------------------------------------------------------------------
     def redis_namespace(self) -> str:
         return os.getenv("CTCACHE_REDIS_NAMESPACE", "ctcache/")
 
@@ -726,6 +734,8 @@ class ClangTidyRedisCache(object):
             port=opts.redis_port(),
             username=opts.redis_username(),
             password=opts.redis_password(),
+            socket_connect_timeout=opts.redis_connect_timeout(),
+            socket_timeout=opts.redis_socket_timeout(),
             # the two settings below are used to avoid sending any commands to the Redis
             # server other than AUTH, GET, and SET (to let the ctcache operate with a
             # server configuration giving only minimal permissions to the given user)
