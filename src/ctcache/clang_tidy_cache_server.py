@@ -184,15 +184,29 @@ class CacheFile():
 
     # -------------------------------------------------------------------------
     def remove(self):
-        os.remove(self._filepath)
+        try:
+            os.remove(self._filepath)
+        except FileNotFoundError:
+            # file already removed
+            pass
 
     # -------------------------------------------------------------------------
     def size(self):
-        return os.path.getsize(self._filepath)
+        try:
+            return os.path.getsize(self._filepath)
+        except FileNotFoundError:
+            # file already removed
+            return 0
 
     # -------------------------------------------------------------------------
     def mtime(self):
-        return os.path.mtime(self._filepath)
+        try:
+            return os.path.getmtime(self._filepath)
+        except FileNotFoundError:
+            # file already removed
+            return 0
+
+
 # ------------------------------------------------------------------------------
 class ClangTidyCacheApp(flask.Flask):
     # --------------------------------------------------------------------------
@@ -319,9 +333,10 @@ class ClangTidyCache(object):
 
     # --------------------------------------------------------------------------
     def _do_cleanup_by_metric(self):
-        for hashstr, info in self._cached.items():
-            if not self.keep_cached(hashstr, info):
-                self._remove_cache_file(hashstr)
+        to_remove = [hashstr for hashstr, info in self._cached.items()
+                     if not self.keep_cached(hashstr, info)]
+        for hashstr in to_remove.items():
+            self._remove_cache_file(hashstr)
 
     # --------------------------------------------------------------------------
     def _do_cleanup_invalid(self):
