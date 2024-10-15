@@ -6,6 +6,7 @@
 #  http://www.boost.org/LICENSE_1_0.txt
 
 import os
+import sys
 import re
 import io
 import math
@@ -335,7 +336,7 @@ class ClangTidyCache(object):
     def _do_cleanup_by_metric(self):
         to_remove = [hashstr for hashstr, info in self._cached.items()
                      if not self.keep_cached(hashstr, info)]
-        for hashstr in to_remove.items():
+        for hashstr in to_remove:
             self._remove_cache_file(hashstr)
 
     # --------------------------------------------------------------------------
@@ -386,14 +387,14 @@ class ClangTidyCache(object):
                         except KeyError:
                             pass
         except Exception as err:
-            pass
+            print(f"Failed to load cache data: {err}", file=sys.stderr)
 
     # --------------------------------------------------------------------------
     def do_save(self):
         try:
             with gzip.open(self._save_path, 'wt', encoding="utf8") as dbf:
                 json.dump(self._cached, dbf)
-        except:
+        except Exception:
             pass
 
     # --------------------------------------------------------------------------
