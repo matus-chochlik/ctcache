@@ -207,6 +207,10 @@ class ClangTidyCacheOpts(object):
             return False
 
     # --------------------------------------------------------------------------
+    def should_print_usage(self):
+        return len(self.original_args()) < 1
+
+    # --------------------------------------------------------------------------
     def original_args(self):
         return self._original_args
 
@@ -1244,6 +1248,9 @@ def hash_inputs(log, opts):
     return result.hexdigest()
 
 # ------------------------------------------------------------------------------
+def print_usage(log):
+    print("Usage: clang-tidy-cache /path/to/real/clang-tidy [[cache-options] --] <clang-tidy-options>")
+# ------------------------------------------------------------------------------
 def print_stats(log, opts, raw):
     def _format_bytes(s):
         if s < 10000:
@@ -1369,7 +1376,9 @@ def main():
     try:
         opts = ClangTidyCacheOpts(log, sys.argv[1:])
         debug = opts.debug_enabled()
-        if opts.should_print_dir():
+        if opts.should_print_usage():
+            print_usage(log)
+        elif opts.should_print_dir():
             print(opts.cache_dir)
         elif opts.should_remove_dir():
             import shutil
