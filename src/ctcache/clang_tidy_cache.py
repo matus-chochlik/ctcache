@@ -101,8 +101,9 @@ class ClangTidyCacheOpts(object):
                 return
 
             cdb_path = args[i]
-            cdb = os.path.join(cdb_path, "compile_commands.json")
-            self._load_compile_command_db(cdb)
+            if os.path.isdir(cdb_path):
+                cdb_path = os.path.join(cdb_path, "compile_commands.json")
+            self._load_compile_command_db(cdb_path)
 
             i += 1
             if i >= len(args):
