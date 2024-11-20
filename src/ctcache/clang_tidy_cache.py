@@ -376,6 +376,10 @@ class ClangTidyCacheOpts(object):
             re.match(self.exclude_hash_regex(), chunk.decode("utf8"))
 
     # --------------------------------------------------------------------------
+    def exclude_user_config(self):
+        return getenv_boolean_flag("CTCACHE_EXCLUDE_USER_CONFIG")
+
+    # --------------------------------------------------------------------------
     def has_redis_host(self) -> bool:
         return "CTCACHE_REDIS_HOST" in os.environ
 
@@ -1150,6 +1154,15 @@ def source_file_changed(cpp_line):
             return os.path.realpath(os.path.dirname(found_path))
 
 # ------------------------------------------------------------------------------
+def remove_matching_line(byte_stream, pattern):
+    text = byte_stream.decode("utf-8")
+    lines = text.split("\n")
+    regex = re.compile(pattern)
+    filtered_lines = [line for line in lines if not regex.search(line)]
+    filtered_text = "\n".join(filtered_lines)
+    return filtered_text.encode("utf-8")
+
+# ------------------------------------------------------------------------------
 def hash_inputs(log, opts):
     ct_args = opts.clang_tidy_args()
     co_args = opts.compiler_args()
@@ -1220,6 +1233,10 @@ def hash_inputs(log, opts):
             stderr=subprocess.PIPE
         )
         stdout, stderr = proc.communicate()
+        if opts.exclude_user_config():
+            stdout = remove_matching_line(stdout, "User:.*$")
+            stdout = remove_matching_line(stdout, "HeaderFilterRegex:.*$")
+
         if (proc.returncode == 0) and (len(stdout) > 0):
             result.update(stdout)
         else:
