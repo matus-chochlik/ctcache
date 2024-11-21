@@ -142,6 +142,7 @@ variables:
 | `CTCACHE_GCS_READ_ONLY`           |  ✓   |      | if set, script won't try to put objects to GCS                   |
 | `CTCACHE_REDIS_HOST`              |  ✓   |      | hostname or IP address of Redis server                           |
 | `CTCACHE_REDIS_PORT`              |  ✓   |      | port of the Redis server (default 6379)                          |
+| `CTCACHE_REDIS_DB`                |  ✓   |      | database id in Redis server (default 0)                          |
 | `CTCACHE_REDIS_USERNAME`          |  ✓   |      | user name to connect to the Redis server                         |
 | `CTCACHE_REDIS_PASSWORD`          |  ✓   |      | password to connect to the Redis server                          |
 | `CTCACHE_REDIS_NAMESPACE`         |  ✓   |      | namespace to store objects in Redis (default `/ctcache`)         |

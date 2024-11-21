@@ -392,6 +392,10 @@ class ClangTidyCacheOpts(object):
         return int(os.getenv("CTCACHE_REDIS_PORT", "6379"))
 
     # --------------------------------------------------------------------------
+    def redis_db(self) -> int:
+        return int(os.getenv("CTCACHE_REDIS_DB", "0"))
+
+    # --------------------------------------------------------------------------
     def redis_username(self) -> str:
         return os.getenv("CTCACHE_REDIS_USERNAME", "")
 
@@ -748,6 +752,7 @@ class ClangTidyRedisCache(object):
         self._cli = redis.Redis(
             host=opts.redis_host(),
             port=opts.redis_port(),
+            db=opts.redis_db(),
             username=opts.redis_username(),
             password=opts.redis_password(),
             socket_connect_timeout=opts.redis_connect_timeout(),
