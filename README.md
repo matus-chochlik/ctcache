@@ -148,6 +148,7 @@ variables:
 | `CTCACHE_REDIS_READ_ONLY`         |  ✓   |      | if set, script won't try to put objects to Redis                 |
 | `CTCACHE_REDIS_CONNECT_TIMEOUT`   |  ✓   |      | Socket connect timeout, seconds, parsed as float (default `0.1`) |
 | `CTCACHE_REDIS_OPERATION_TIMEOUT` |  ✓   |      | Socket timeout, seconds, parsed as float (default `10.0`)        |
+| `CTCACHE_REDIS_CACHE_TTL`         |  ✓   |      | cache TTL in seconds, parsed as int (default `-1`)               |
 
 
 ### The dashboard

@@ -408,6 +408,13 @@ class ClangTidyCacheOpts(object):
         return float(os.getenv("CTCACHE_REDIS_OPERATION_TIMEOUT", "10.0"))
 
     # --------------------------------------------------------------------------
+    def redis_cache_ttl(self) -> float:
+        ttl = int(os.getenv("CTCACHE_REDIS_CACHE_TTL", "-1"))
+        if ttl < 0:
+            return None
+        return ttl
+
+    # --------------------------------------------------------------------------
     def redis_namespace(self) -> str:
         return os.getenv("CTCACHE_REDIS_NAMESPACE", "ctcache/")
 
@@ -764,21 +771,23 @@ class ClangTidyRedisCache(object):
     # --------------------------------------------------------------------------
     def get_cache_data(self, digest) -> tp.Optional[bytes]:
         n_digest = self._get_key_from_digest(digest)
-        return self._cli.get(n_digest)
+        data = self._cli.get(n_digest)
+        ttl = self._opts.redis_cache_ttl()
+        if not self._opts.redis_read_only() and data is not None and ttl is not None:
+            # try to extend TTL on cache hits
+            self._cli.expire(n_digest, ttl, xx=True)
+        return data
 
     # --------------------------------------------------------------------------
     def store_in_cache(self, digest):
-        if self._opts.redis_read_only():
-            return
-        n_digest = self._get_key_from_digest(digest)
-        self._cli.set(n_digest, "")
+        self.store_in_cache_with_data(digest, bytes())
 
     # --------------------------------------------------------------------------
     def store_in_cache_with_data(self, digest, data: bytes):
         if self._opts.redis_read_only():
             return
         n_digest = self._get_key_from_digest(digest)
-        self._cli.set(n_digest, data)
+        self._cli.set(n_digest, data, ex=self._opts.redis_cache_ttl())
 
     # --------------------------------------------------------------------------
     def query_stats(self, options):
