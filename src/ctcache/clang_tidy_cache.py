@@ -142,8 +142,13 @@ class ClangTidyCacheOpts(object):
     def _load_compile_command_db(self, filename):
         try:
             with open(filename) as f:
-                js = f.read().replace(r'\\\"', "'").replace("\\", "\\\\")
-                self._compile_commands_db = json.loads(js)
+                cdb = f.read()
+                try:
+                    js = cdb.replace(r'\\\"', "'").replace("\\", "\\\\")
+                    self._compile_commands_db = json.loads(js)
+                except JSONDecodeError:
+                    self._compile_commands_db = json.loads(cdb)
+
         except Exception as err:
             self._log.error("Loading compile command DB failed: {0}".format(repr(err)))
             return False
