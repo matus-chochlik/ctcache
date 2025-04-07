@@ -146,7 +146,7 @@ class ClangTidyCacheOpts(object):
                 try:
                     js = cdb.replace(r'\\\"', "'").replace("\\", "\\\\")
                     self._compile_commands_db = json.loads(js)
-                except JSONDecodeError:
+                except json.JSONDecodeError:
                     self._compile_commands_db = json.loads(cdb)
 
         except Exception as err:
