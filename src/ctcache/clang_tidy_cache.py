@@ -334,7 +334,7 @@ class ClangTidyCacheOpts:
 
     # --------------------------------------------------------------------------
     def has_host(self) -> bool:
-        return "CTCACHE_HOST" is os.environ
+        return "CTCACHE_HOST" in os.environ
 
     # --------------------------------------------------------------------------
     def rest_host(self) -> str:
