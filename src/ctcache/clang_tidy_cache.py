@@ -368,6 +368,9 @@ class ClangTidyCacheOpts:
     def debug_enabled(self) -> bool:
         return getenv_boolean_flag("CTCACHE_DEBUG")
 
+    def log_level(self) -> str:
+        return os.getenv("CTCACHE_LOG_LEVEL", "WARNING").upper()
+
     # --------------------------------------------------------------------------
     def dump_enabled(self) -> bool:
         return getenv_boolean_flag("CTCACHE_DUMP")
@@ -1368,11 +1371,14 @@ def run_clang_tidy_cached(log, opts):
                 sys.stdout.write(data[1:].decode("utf8"))
                 return returncode
         elif digest and cache.is_cached(digest):
+            log.debug(f"Digest {digest} exists in cache")
             return 0
         else:
             pass
     except Exception as error:
         log.error(str(error))
+
+    log.debug(f"Digest {digest} does not exist in cache. Calling real clang-tidy")
 
     proc = subprocess.Popen(
         opts.original_args(),
@@ -1410,11 +1416,12 @@ def run_clang_tidy_cached(log, opts):
 # ------------------------------------------------------------------------------
 def main():
     log = logging.getLogger(os.path.basename(__file__))
-    log.setLevel(logging.WARNING)
+    logging.basicConfig()
     debug = False
     opts = None
     try:
         opts = ClangTidyCacheOpts(log, sys.argv[1:])
+        log.setLevel(opts.log_level())
         debug = opts.debug_enabled()
         if opts.should_print_usage():
             print_usage()
