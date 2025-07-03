@@ -1,6 +1,6 @@
 # Cache for `clang-tidy` static analysis results
 
-## Introduction 
+## Introduction
 
 `clang-tidy-cache` is a command-line application which "wraps" invocations
 of the `clang-tidy` static analysis tool and caches the results of successful
@@ -125,6 +125,7 @@ variables:
 | `CTCACHE_SAVE_ALL`                |  ✓   |      | save the output even when `clang-tidy` exited with error         |
 | `CTCACHE_KEEP_COMMENTS`           |  ✓   |      | include source comments (e.g. `NOLINT`) in the hash              |
 | `CTCACHE_LOCAL`                   |  ✓   |      | enables the local cache                                          |
+| `CTCACHE_LOG_LEVEL`               |  ✓   |      | set the log level: (critical, error, warning, info, debug)       |
 | `CTCACHE_NO_LOCAL_STATS`          |  ✓   |      | disables keeping local cache statistics                          |
 | `CTCACHE_NO_LOCAL_WRITEBACK`      |  ✓   |      | disables storage of remote cache hits to the local cache         |
 | `CTCACHE_S3_BUCKET`               |  ✓   |      | the S3 bucket to store cache remotely                            |
