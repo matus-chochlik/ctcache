@@ -3,6 +3,11 @@
 # Distributed under the Boost Software License, Version 1.0.
 # See accompanying file LICENSE_1_0.txt or copy at
 #  http://www.boost.org/LICENSE_1_0.txt
+
+set -e
+
 mkdir -p ~/.local/bin
-cp -u "$(dirname ${0})/src/ctcache/clang-tidy" ~/.local/bin
+cp -u "$(dirname ${0})/clang-tidy" ~/.local/bin/clang-tidy
 cp -u "$(dirname ${0})/src/ctcache/clang_tidy_cache.py" ~/.local/bin/clang-tidy-cache
+chmod +x ~/.local/bin/clang-tidy
+chmod +x ~/.local/bin/clang-tidy-cache
