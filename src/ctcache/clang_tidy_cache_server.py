@@ -150,6 +150,16 @@ class ArgumentParser(argparse.ArgumentParser):
             Starts the service in debug mode.
             """)
 
+        self.add_argument(
+            "--auth-key-writes",
+            dest="auth_key_writes",
+            metavar="STRING",
+            type=str,
+            default=None,
+            help="""
+            If specified, all non-GET requests must supply matching ?key=STRING or are rejected (403).
+            """)
+
     # -------------------------------------------------------------------------
     def process_parsed_options(self, options):
         return options
@@ -239,6 +249,13 @@ class ClangTidyCacheApp(flask.Flask):
 # ------------------------------------------------------------------------------
 clang_tidy_cache = None
 ctcache_app = ClangTidyCacheApp()
+
+@ctcache_app.before_request
+def _ctc_auth_writes():
+    if flask.request.method != 'GET':
+        if clang_tidy_cache.auth_key_writes and flask.request.args.get("key") != clang_tidy_cache.auth_key_writes:
+            flask.abort(403)
+
 # ------------------------------------------------------------------------------
 class ClangTidyCache(object):
     # --------------------------------------------------------------------------
@@ -256,6 +273,7 @@ class ClangTidyCache(object):
         self._stats_path = options.stats_path
         self._chart_path = options.chart_path
         self._max_cache_size = options.max_cache_size
+        self._auth_key_writes = options.auth_key_writes
         #
         self._info_getters = {
             "static_path": self.static_path,
@@ -527,6 +545,11 @@ class ClangTidyCache(object):
         return self._save_path
 
     # --------------------------------------------------------------------------
+    @property
+    def auth_key_writes(self):
+        return self._auth_key_writes
+
+    # --------------------------------------------------------------------------
     def save_file_size(self):
         try: return os.path.getsize(self.save_path())
         except: return 0
@@ -605,7 +628,6 @@ class ClangTidyCache(object):
         result = dict()
         for hashstr, info in self._cached.items():
             try:
-                age_days = int(round((time.time() - info["insert_time"]) / (24*3600)))
                 try:
                     result[age_days] += 1
                 except KeyError:
@@ -865,7 +887,7 @@ def ctc_cache(hashstr):
 def ctc_is_cached(hashstr):
     return "true" if clang_tidy_cache.is_cached(hashstr) else "false"
 # ------------------------------------------------------------------------------
-@ctcache_app.route("/purge_cache")
+@ctcache_app.route("/purge_cache", methods=['DELETE'])
 def ctc_purge_cache():
     return str(clang_tidy_cache.do_purge())
 # ------------------------------------------------------------------------------

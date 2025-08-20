@@ -349,6 +349,10 @@ class ClangTidyCacheOpts:
         return int(os.getenv("CTCACHE_PORT", 5000))
 
     # --------------------------------------------------------------------------
+    def auth_key(self) -> Optional[str]:
+        return os.getenv("CTCACHE_AUTH_KEY")
+
+    # --------------------------------------------------------------------------
     def rest_host_read_only(self) -> bool:
         return getenv_boolean_flag("CTCACHE_HOST_READ_ONLY")
 
@@ -516,11 +520,16 @@ class ClangTidyServerCache:
         self.store_in_cache_with_data(digest, bytes())
 
     # --------------------------------------------------------------------------
+    def _auth_params(self):
+        ak = self._opts.auth_key()
+        return {"key": ak} if ak else {}
+
+    # --------------------------------------------------------------------------
     def store_in_cache_with_data(self, digest, data: bytes):
         if self._opts.rest_host_read_only():
             return
         try:
-            query = self._requests.put(self._make_data_url(digest), data={'data': data}, timeout=3)
+            query = self._requests.put(self._make_data_url(digest), data={'data': data}, params=self._auth_params(), timeout=3)
             if query.status_code != 200:
                 self._log.error("store_in_cache: Can't store data in server {0}, error {1}".format(
                     self._opts.rest_host(), query.status_code))

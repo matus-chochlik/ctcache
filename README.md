@@ -111,6 +111,7 @@ variables:
 
 | variable                          |client|server| description                                                      |
 |-----------------------------------|:----:|:----:|------------------------------------------------------------------|
+| `CTCACHE_AUTH_KEY`                |  ✓   |      | this key is passed to ctcache server when modifying cache        |
 | `CTCACHE_CLANG_TIDY`              |  ✓   |      | path to the `clang-tidy` executable                              |
 | `CTCACHE_DISABLE`                 |  ✓   |      | disables cache, always runs `clang-tidy`                         |
 | `CTCACHE_SKIP`                    |  ✓   |      | disables analysis altogether, returns OK                         |
@@ -134,7 +135,7 @@ variables:
 | `CTCACHE_PROTO`                   |  ✓   |      | protocol for connecting to the server                            |
 | `CTCACHE_HOST`                    |  ✓   |  ✓   | hostname or IP address of the server                             |
 | `CTCACHE_HOST_READ_ONLY`          |  ✓   |      | if set, script won't try to push objects to server               |
-| `CTCACHE_PORT`                    |  ✓   |  ✓   | listening port of the server                                     |
+| `CTCACHE_PORT`                    |  ✓   |      | listening port of the server (use `--port` for server)           |
 | `CTCACHE_WEBROOT`                 |      |  ✓   | directory containing static server files                         |
 | `CTCACHE_GCS_BUCKET`              |  ✓   |      | the Google Cloud Storage bucket to store cache remotely          |
 | `CTCACHE_GCS_FOLDER`              |  ✓   |      | the prefix in GCS, w/o leading and trailing `/`                  |
