@@ -887,11 +887,11 @@ def ctc_cache(hashstr):
 def ctc_is_cached(hashstr):
     return "true" if clang_tidy_cache.is_cached(hashstr) else "false"
 # ------------------------------------------------------------------------------
-@ctcache_app.route("/purge_cache", methods=['GET', 'DELETE'])
+@ctcache_app.route("/purge_cache")
 def ctc_purge_cache():
     # Deny GET if auth_key_writes is configured
-    # In a future update this API cannot be called with a GET request anymore
-    if flask.request.method == 'GET' and clang_tidy_cache.auth_key_writes:
+    # In a future update this API can only be called with a DELETE HTTP method
+    if flask.request.method != 'GET' and clang_tidy_cache.auth_key_writes:
         return flask.abort(403)
     return str(clang_tidy_cache.do_purge())
 # ------------------------------------------------------------------------------
