@@ -167,7 +167,7 @@ class ClangTidyCacheOpts:
             self._log.error("Loading compile command DB failed: {0}".format(repr(err)))
 
     # --------------------------------------------------------------------------
-    def _compiler_args_for(self, filename: os.PathLike):
+    def _compiler_args_for(self, filename: os.PathLike) -> List[str]:
         if self._compile_commands_db is None:
             return []
 
@@ -293,7 +293,7 @@ class ClangTidyCacheOpts:
         return os.getenv("CTCACHE_S3_FOLDER", 'clang-tidy-cache')
 
     # --------------------------------------------------------------------------
-    def s3_no_credentials(self):
+    def s3_no_credentials(self) -> str:
         return os.getenv("CTCACHE_S3_NO_CREDENTIALS", "")
 
     # --------------------------------------------------------------------------
@@ -313,7 +313,7 @@ class ClangTidyCacheOpts:
         return os.getenv("CTCACHE_GCS_FOLDER", 'clang-tidy-cache')
 
     # --------------------------------------------------------------------------
-    def gcs_no_credentials(self):
+    def gcs_no_credentials(self) -> str:
         return os.getenv("CTCACHE_GCS_NO_CREDENTIALS")
 
     # --------------------------------------------------------------------------
@@ -372,6 +372,7 @@ class ClangTidyCacheOpts:
     def debug_enabled(self) -> bool:
         return getenv_boolean_flag("CTCACHE_DEBUG")
 
+    # --------------------------------------------------------------------------
     def log_level(self) -> str:
         return os.getenv("CTCACHE_LOG_LEVEL", "WARNING").upper()
 
@@ -491,7 +492,7 @@ class ClangTidyServerCache:
         self._opts = opts
 
     # --------------------------------------------------------------------------
-    def is_cached(self, digest):
+    def is_cached(self, digest) -> bool:
         try:
             query = self._requests.get(self._make_query_url(digest), timeout=3)
             if query.status_code == 200:
@@ -523,7 +524,7 @@ class ClangTidyServerCache:
         self.store_in_cache_with_data(digest, bytes())
 
     # --------------------------------------------------------------------------
-    def _auth_params(self):
+    def _auth_params(self) -> dict:
         ak = self._opts.auth_key()
         return {"key": ak} if ak else {}
 
@@ -540,7 +541,7 @@ class ClangTidyServerCache:
             pass
 
     # --------------------------------------------------------------------------
-    def query_stats(self, options):
+    def query_stats(self, options) -> dict:
         try:
             query = self._requests.get(self._make_stats_url(), timeout=3)
             if query.status_code == 200:
@@ -558,7 +559,7 @@ class ClangTidyServerCache:
         pass
 
     # --------------------------------------------------------------------------
-    def _make_query_url(self, digest):
+    def _make_query_url(self, digest) -> str:
         return "%(proto)s://%(host)s:%(port)d/is_cached/%(digest)s" % {
             "proto": self._opts.rest_proto(),
             "host": self._opts.rest_host(),
@@ -567,7 +568,7 @@ class ClangTidyServerCache:
         }
 
     # --------------------------------------------------------------------------
-    def _make_data_url(self, digest):
+    def _make_data_url(self, digest) -> str:
         return "%(proto)s://%(host)s:%(port)d/cache/%(digest)s" % {
             "proto": self._opts.rest_proto(),
             "host": self._opts.rest_host(),
@@ -576,7 +577,7 @@ class ClangTidyServerCache:
         }
 
     # --------------------------------------------------------------------------
-    def _make_stats_url(self):
+    def _make_stats_url(self) -> str:
         return "%(proto)s://%(host)s:%(port)d/stats" % {
             "proto": self._opts.rest_proto(),
             "host": self._opts.rest_host(),
@@ -760,7 +761,7 @@ class ClangTidyLocalCache:
                     yield root, prefix, filename
 
     # --------------------------------------------------------------------------
-    def query_stats(self, options):
+    def query_stats(self, options) -> dict:
         hash_count = sum(1 for x in self._list_cached_files(options, options.cache_dir))
         return {"cached_count": hash_count}
 
@@ -825,7 +826,7 @@ class ClangTidyRedisCache:
         self._cli.set(n_digest, data, ex=self._opts.redis_cache_ttl())
 
     # --------------------------------------------------------------------------
-    def query_stats(self, options):
+    def query_stats(self, options) -> dict:
         # TODO
         pass
 
@@ -854,7 +855,7 @@ class ClangTidyS3Cache:
         self._bucket_folder = opts.s3_bucket_folder()
 
     # --------------------------------------------------------------------------
-    def is_cached(self, digest):
+    def is_cached(self, digest) -> bool:
         try:
             path = self._make_path(digest)
             self._client.get_object(Bucket=self._bucket, Key=path)
@@ -889,7 +890,7 @@ class ClangTidyS3Cache:
         pass
 
     # --------------------------------------------------------------------------
-    def query_stats(self, options):
+    def query_stats(self, options) -> dict:
         # TODO
         pass
 
@@ -918,7 +919,7 @@ class ClangTidyGcsCache:
         self._bucket_folder = opts.gcs_bucket_folder()
 
     # --------------------------------------------------------------------------
-    def is_cached(self, digest):
+    def is_cached(self, digest) -> bool:
         try:
             path = self._make_path(digest)
             blob = self._bucket.blob(path)
@@ -964,7 +965,7 @@ class ClangTidyGcsCache:
             raise
 
     # --------------------------------------------------------------------------
-    def query_stats(self, options):
+    def query_stats(self, options) -> dict:
         # TODO
         pass
 
@@ -985,7 +986,7 @@ class ClangTidyMultiCache:
         self._caches = caches
 
     # --------------------------------------------------------------------------
-    def is_cached(self, digest):
+    def is_cached(self, digest) -> bool:
         for cache in self._caches:
             if cache.is_cached(digest):
                 return True
@@ -1012,7 +1013,7 @@ class ClangTidyMultiCache:
             cache.store_in_cache_with_data(digest, data)
 
     # --------------------------------------------------------------------------
-    def query_stats(self, options):
+    def query_stats(self, options) -> dict:
         for cache in self._caches:
             stats = cache.query_stats(options)
             if stats:
@@ -1035,7 +1036,7 @@ class ClangTidyCacheWithStats:
         self._stats = stats
 
     # --------------------------------------------------------------------------
-    def is_cached(self, digest):
+    def is_cached(self, digest) -> bool:
         res = self._cache.is_cached(digest)
         if self._stats:
             self._stats.update(digest, res)
@@ -1057,7 +1058,7 @@ class ClangTidyCacheWithStats:
         self._cache.store_in_cache_with_data(digest, data)
 
     # --------------------------------------------------------------------------
-    def query_stats(self, options):
+    def query_stats(self, options) -> dict:
         stats = self._cache.query_stats(options)
         if stats is None:
             stats = {}
@@ -1117,7 +1118,7 @@ class ClangTidyCache:
         return cache
 
     # --------------------------------------------------------------------------
-    def is_cached(self, digest):
+    def is_cached(self, digest) -> bool:
         if self._local:
             if self._local.is_cached(digest):
                 return True
@@ -1163,7 +1164,7 @@ class ClangTidyCache:
             self._remote.store_in_cache_with_data(digest, data)
 
     # --------------------------------------------------------------------------
-    def query_stats(self, options):
+    def query_stats(self, options) -> dict:
         stats = {}
 
         if self._local:
@@ -1183,7 +1184,7 @@ class ClangTidyCache:
             self._remote.clear_stats(options)
 
     # --------------------------------------------------------------------------
-    def should_writeback(self):
+    def should_writeback(self) -> bool:
         return self._local is not None and not self._opts.no_local_writeback()
 
 # ------------------------------------------------------------------------------
