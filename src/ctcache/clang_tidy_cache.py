@@ -182,7 +182,7 @@ class ClangTidyCacheOpts:
                         return shlex.split(command["command"])
                     except KeyError:
                         try:
-                            return shlex.split(command["arguments"][0])
+                            return command["arguments"]
                         except:
                             return ["clang-tidy"]
             except FileNotFoundError:
