@@ -12,7 +12,7 @@ the same unchanged source code.
 
 ## How it works
 
-`clang-tidy-cache` scans the command-line arguments passed to `clang-tidy`,
+When the `CTCACHE_SAVE_OUTPUT` environment variable is set, `clang-tidy-cache` scans the command-line arguments passed to `clang-tidy`,
 relevant `clang-tidy` configuration files, all source files being analyzed
 and makes a hash uniquely identifying the invocation of `clang-tidy`.
 
