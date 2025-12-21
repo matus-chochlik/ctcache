@@ -646,7 +646,7 @@ class ClangTidyCacheStats:
     def read(self):
         hits, misses = 0, 0
         for i in range(0, 256):
-            digest = f'{i:x}'
+            digest = f'{i:02x}'
             file = self.stats_file(digest)
             if os.path.isfile(file):
                 h, m = self._read(file)
@@ -704,7 +704,7 @@ class ClangTidyCacheStats:
     # --------------------------------------------------------------------------
     def clear(self):
         for i in range(0, 256):
-            digest = f'{i:x}'
+            digest = f'{i:02x}'
             file = self.stats_file(digest)
             if os.path.isfile(file):
                 os.unlink(file)
