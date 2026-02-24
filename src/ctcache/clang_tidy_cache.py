@@ -95,7 +95,7 @@ class ClangTidyCacheOpts:
         return False
 
     # --------------------------------------------------------------------------
-    def _split_compiler_clang_tidy_args(self, args: List[str]) -> List[str]:
+    def _split_compiler_clang_tidy_args(self, args: List[str]) -> Optional[List[str]]:
         # splits arguments starting with - on the first =
         args = [arg.split('=', 1) if arg.startswith('-p') else [arg] for arg in args]
         args = [arg for sub in args for arg in sub]
@@ -136,21 +136,34 @@ class ClangTidyCacheOpts:
     # --------------------------------------------------------------------------
     def _adjust_compiler_args(self) -> None:
         if self._compiler_args:
+            is_msvc_like = self.running_on_msvc() or self.running_on_clang_cl()
+            # Remove MSVC-style single-token output flags (/Fo<path>, /Fe<path>)
+            # before the paired-arg loop, since they aren't two-token pairs.
+            # Note: only handles CMake-style single-token forms (e.g. /FoDebug/x.obj),
+            # not the two-token /Fo Debug/x.obj variant.
+            if is_msvc_like:
+                self._compiler_args = [
+                    a for a in self._compiler_args
+                    if not a.startswith(("/Fo", "/Fe"))
+                ]
             pos = next((pos for pos, arg in enumerate(self._compiler_args) if arg.startswith('-D')), 1)
             self._compiler_args.insert(pos, "-D__clang_analyzer__=1")
             for i in range(1, len(self._compiler_args)):
                 if self._compiler_args[i-1] in ["-o", "--output"]:
                     self._compiler_args[i] = "-"
-                if self._compiler_args[i-1] in ["-c"]:
+                if self._compiler_args[i-1] in ["-c", "/c"]:
                     self._compiler_args[i-1] = "-E"
             for i in range(1, len(self._compiler_args)):
                 if self._compiler_args[i-1] in ["-E"]:
-                    if self.running_on_msvc():
+                    if is_msvc_like:
                         self._compiler_args[i-1] = "-EP"
                     else:
                         self._compiler_args.insert(i, "-P")
                     if self.keep_comments():
-                        self._compiler_args.insert(i, "-C")
+                        if is_msvc_like:
+                            self._compiler_args.insert(i, "/C")
+                        else:
+                            self._compiler_args.insert(i, "-C")
 
     # --------------------------------------------------------------------------
     def _load_compile_command_db(self, filename: os.PathLike) -> None:
@@ -158,10 +171,11 @@ class ClangTidyCacheOpts:
             with open(filename) as f:
                 cdb = f.read()
                 try:
+                    self._compile_commands_db = json.loads(cdb)
+                except json.JSONDecodeError:
+                    # Fallback: try to fix Windows-style backslash paths
                     js = cdb.replace(r'\\\"', "'").replace("\\", "\\\\")
                     self._compile_commands_db = json.loads(js)
-                except json.JSONDecodeError:
-                    self._compile_commands_db = json.loads(cdb)
 
         except Exception as err:
             self._log.error("Loading compile command DB failed: {0}".format(repr(err)))
@@ -176,6 +190,16 @@ class ClangTidyCacheOpts:
 
         for command in self._compile_commands_db:
             db_filename = command["file"]
+            if not os.path.isabs(db_filename):
+                db_dir = command.get("directory", "")
+                if db_dir:
+                    db_filename = os.path.join(db_dir, db_filename)
+                else:
+                    self._log.error(
+                        f"compile_commands.json contains relative path '{db_filename}' "
+                        f"without a 'directory' field. "
+                        f"Ensure your build system emits absolute paths or includes 'directory'.")
+                    continue
             try:
                 if os.path.samefile(filename, db_filename):
                     try:
@@ -275,7 +299,7 @@ class ClangTidyCacheOpts:
                 if os.path.exists(w):
                     w = os.path.realpath(w)
                 w = self.strip_paths(w)
-                w.strip()
+                w = w.strip()
                 if w:
                     r += w.encode("utf8")
         return r
@@ -750,15 +774,11 @@ class ClangTidyLocalCache:
             stream.write(data)
 
     # --------------------------------------------------------------------------
-    def _list_cached_files(self, options, prefix):
-        for root, dirs, files in os.walk(prefix):
-            for prefix in dirs:
-                for filename in self._list_cached_files(options, prefix):
-                    if self._hash_regex.match(filename):
-                        yield root, prefix, filename
+    def _list_cached_files(self, options, base_dir):
+        for root, dirs, files in os.walk(base_dir):
             for filename in files:
                 if self._hash_regex.match(filename):
-                    yield root, prefix, filename
+                    yield root, filename
 
     # --------------------------------------------------------------------------
     def query_stats(self, options) -> dict:
@@ -1414,7 +1434,10 @@ def run_clang_tidy_cached(log, opts):
     if (tidy_success or save_even_without_success) and digest:
         try:
             if opts.save_output():
-                returncode_and_ct_output = bytes([proc.returncode]) + stdout
+                # Mask to low byte for single-byte encoding;
+                # on Windows, crash codes like 0xC0000005 would overflow bytes()
+                rc = proc.returncode & 0xFF
+                returncode_and_ct_output = bytes([rc]) + stdout
                 cache.store_in_cache_with_data(digest, returncode_and_ct_output)
             else:
                 cache.store_in_cache(digest)
