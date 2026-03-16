@@ -1267,6 +1267,22 @@ def hash_inputs(log, opts):
 
         result.update(stdout)
 
+        # Hash #include directives from source files so that changes to the include list
+        # (which may not alter preprocessed output due to include guards) still invalidate the cache.
+        # This prevents stale results from checks like misc-include-cleaner that inspect the source directly.
+        for arg in ct_args[1:]:
+            if os.path.exists(arg) and _is_src_ext(arg):
+                try:
+                    with open(arg, "r", encoding="utf-8", errors="replace") as srcfd:
+                        for line in srcfd:
+                            stripped = line.strip()
+                            if stripped.startswith("#"):
+                                rest = stripped[1:].lstrip()
+                                if rest.startswith("include"):
+                                    result.update(stripped.encode("utf-8"))
+                except IOError:
+                    pass
+
     # --- Config Contents ------------------------------------------------------
     # (as obtained by running clang-tidy with --dump-config flag)
 
