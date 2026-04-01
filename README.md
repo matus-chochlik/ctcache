@@ -122,6 +122,7 @@ variables:
 | `CTCACHE_DEBUG`                   |  ✓   |      | enables debugging output                                         |
 | `CTCACHE_DIR`                     |  ✓   |      | the cache storage directory in local mode                        |
 | `CTCACHE_EXCLUDE_HASH_REGEX`      |  ✓   |      | regular expression of hashes that should not be cached           |
+| `CTCACHE_BYPASS_FLAGS_REGEX`      |  ✓   |      | regex of flags that cause bypassing ctcache                      |
 | `CTCACHE_SAVE_OUTPUT`             |  ✓   |      | saves the stdout output of `clang-tidy` in the cache             |
 | `CTCACHE_SAVE_ALL`                |  ✓   |      | save the output even when `clang-tidy` exited with error         |
 | `CTCACHE_KEEP_COMMENTS`           |  ✓   |      | include source comments (e.g. `NOLINT`) in the hash              |
