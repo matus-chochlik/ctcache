@@ -421,6 +421,10 @@ class ClangTidyCacheOpts:
         return os.getenv("CTCACHE_EXCLUDE_HASH_REGEX")
 
     # --------------------------------------------------------------------------
+    def bypass_flags_regex(self) -> str:
+        return os.getenv("CTCACHE_BYPASS_FLAGS_REGEX")
+
+    # --------------------------------------------------------------------------
     def exclude_hash(self, chunk: bytes) -> bool:
         return self.exclude_hash_regex() is not None and \
             re.match(self.exclude_hash_regex(), chunk.decode("utf8"))
@@ -1224,6 +1228,13 @@ def hash_inputs(log, opts):
     if not ct_args and not co_args:
         return None
 
+    bypass_flags_regex = opts.bypass_flags_regex()
+    if bypass_flags_regex:
+        for ct_arg in ct_args:
+            if re.search(bypass_flags_regex, ct_arg):
+                log.debug(f"Skip caching because of {ct_arg}")
+                return None
+
     def _is_src_ext(s):
         exts = [".cppm", ".cpp", ".c", ".cc", ".h", ".hpp", ".cxx"]
         return any(s.lower().endswith(ext) for ext in exts)
@@ -1424,7 +1435,9 @@ def run_clang_tidy_cached(log, opts):
     except Exception as error:
         log.error(str(error))
 
-    log.debug(f"Digest {digest} does not exist in cache. Calling real clang-tidy")
+    if digest:
+        log.debug(f"Digest {digest} does not exist in cache.")
+    log.debug(f"Calling real clang-tidy.")
 
     proc = subprocess.Popen(
         opts.original_args(),
