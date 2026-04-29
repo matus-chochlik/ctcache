@@ -628,6 +628,7 @@ class ClangTidyCache(object):
         result = dict()
         for hashstr, info in self._cached.items():
             try:
+                age_days = int(round((time.time() - info["insert_time"]) / (24*3600)))
                 try:
                     result[age_days] += 1
                 except KeyError:
