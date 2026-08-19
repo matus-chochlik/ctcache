@@ -157,8 +157,6 @@ class ClangTidyCacheOpts:
                 if self._compiler_args[i-1] in ["-E"]:
                     if is_msvc_like:
                         self._compiler_args[i-1] = "-EP"
-                    else:
-                        self._compiler_args.insert(i, "-P")
                     if self.keep_comments():
                         if is_msvc_like:
                             self._compiler_args.insert(i, "/C")
