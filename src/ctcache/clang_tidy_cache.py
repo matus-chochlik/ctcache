@@ -14,6 +14,7 @@ checks enabled without paying the cost of excessive build times when re-checking
 the same unchanged source code.
 """
 
+import argparse
 import errno
 import getpass
 import hashlib
@@ -211,41 +212,6 @@ class ClangTidyCacheOpts:
                 continue
 
         return []
-
-    # --------------------------------------------------------------------------
-    def should_print_dir(self) -> bool:
-        try:
-            return self._original_args[0] == "--cache-dir"
-        except IndexError:
-            return False
-
-    # --------------------------------------------------------------------------
-    def should_print_stats(self) -> bool:
-        try:
-            return self._original_args[0] == "--show-stats"
-        except IndexError:
-            return False
-
-    # --------------------------------------------------------------------------
-    def should_print_stats_raw(self) -> bool:
-        try:
-            return self._original_args[0] == "--print-stats"
-        except IndexError:
-            return False
-
-    # --------------------------------------------------------------------------
-    def should_remove_dir(self) -> bool:
-        try:
-            return self._original_args[0] == "--clean"
-        except IndexError:
-            return False
-
-    # --------------------------------------------------------------------------
-    def should_zero_stats(self) -> bool:
-        try:
-            return self._original_args[0] == "--zero-stats"
-        except IndexError:
-            return False
 
     # --------------------------------------------------------------------------
     def should_print_usage(self) -> bool:
@@ -1345,6 +1311,63 @@ def hash_inputs(log, opts):
     return result.hexdigest()
 
 # ------------------------------------------------------------------------------
+def get_argument_parser() -> argparse.ArgumentParser:
+    """Returns the parser used for clang-tidy-cache's own command line."""
+    parser = argparse.ArgumentParser(
+        prog="clang-tidy-cache",
+        description="Cache successful clang-tidy invocations.",
+        allow_abbrev=False,
+        usage="%(prog)s /path/to/real/clang-tidy "
+              "[[cache-options] --] <clang-tidy-options>",
+    )
+    parser.add_argument(
+        "--cache-dir",
+        action="store_true",
+        help="print the local cache directory and exit",
+    )
+    parser.add_argument(
+        "--show-stats",
+        "-s",
+        action="store_true",
+        help="print cache statistics and exit",
+    )
+    parser.add_argument(
+        "--print-stats",
+        action="store_true",
+        help="print cache statistics as JSON and exit",
+    )
+    parser.add_argument(
+        "--clean",
+        "-c",
+        action="store_true",
+        help="remove the local cache directory and exit",
+    )
+    parser.add_argument(
+        "--zero-stats",
+        "-z",
+        action="store_true",
+        help="clear cache statistics and exit",
+    )
+    parser.epilog = (
+        "Pass the path to the real clang-tidy executable first. Arguments after "
+        "that path, including --help, are passed through to clang-tidy."
+    )
+    return parser
+
+# ------------------------------------------------------------------------------
+def parse_wrapper_command(args: List[str]) -> Optional[argparse.Namespace]:
+    """Parses a standalone clang-tidy-cache command, if one was requested."""
+    if not args:
+        return None
+
+    # Only the leading token belongs to clang-tidy-cache. In particular, do
+    # not parse the real clang-tidy executable or any of its arguments.
+    options, unrecognized = get_argument_parser().parse_known_args(args[:1])
+    if unrecognized or not any(vars(options).values()):
+        return None
+    return options
+
+# ------------------------------------------------------------------------------
 def print_usage():
     print("Usage: clang-tidy-cache /path/to/real/clang-tidy [[cache-options] --] <clang-tidy-options>")
 # ------------------------------------------------------------------------------
@@ -1480,24 +1503,26 @@ def main():
     debug = False
     opts = None
     try:
+        wrapper_command = parse_wrapper_command(sys.argv[1:])
         opts = ClangTidyCacheOpts(log, sys.argv[1:])
         log.setLevel(opts.log_level())
         debug = opts.debug_enabled()
         if opts.should_print_usage():
             print_usage()
-        elif opts.should_print_dir():
-            print(opts.cache_dir)
-        elif opts.should_remove_dir():
-            try:
-                shutil.rmtree(opts.cache_dir)
-            except FileNotFoundError:
-                pass
-        elif opts.should_print_stats():
-            print_stats(log, opts, False)
-        elif opts.should_print_stats_raw():
-            print_stats(log, opts, True)
-        elif opts.should_zero_stats():
-            clear_stats(log, opts)
+        elif wrapper_command:
+            if wrapper_command.cache_dir:
+                print(opts.cache_dir)
+            elif wrapper_command.clean:
+                try:
+                    shutil.rmtree(opts.cache_dir)
+                except FileNotFoundError:
+                    pass
+            elif wrapper_command.show_stats:
+                print_stats(log, opts, False)
+            elif wrapper_command.print_stats:
+                print_stats(log, opts, True)
+            elif wrapper_command.zero_stats:
+                clear_stats(log, opts)
         else:
             return run_clang_tidy_cached(log, opts)
         return 0
