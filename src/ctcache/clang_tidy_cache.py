@@ -30,10 +30,41 @@ import time
 import traceback
 from typing import List, Optional
 
+
 try:
     import redis
 except ImportError:
     redis = None
+
+# ------------------------------------------------------------------------------
+def split_command(command: str) -> List[str]:
+    """Return arguments without starting a shell or changing their contents."""
+    if os.name != "nt":
+        return shlex.split(command)
+    if not command.strip():
+        return []
+
+    import ctypes
+    from ctypes import wintypes
+
+    shell = ctypes.WinDLL("shell32", use_last_error=True)
+    kernel = ctypes.WinDLL("kernel32", use_last_error=True)
+    parse = shell.CommandLineToArgvW
+    parse.argtypes = [wintypes.LPCWSTR, ctypes.POINTER(ctypes.c_int)]
+    parse.restype = ctypes.POINTER(wintypes.LPWSTR)
+    release = kernel.LocalFree
+    release.argtypes = [ctypes.c_void_p]
+    release.restype = ctypes.c_void_p
+
+    count = ctypes.c_int()
+    # Leading whitespace would create an empty executable argument.
+    arguments = parse(command.lstrip(), ctypes.byref(count))
+    if not arguments:
+        raise ctypes.WinError(ctypes.get_last_error())
+    try:
+        return [arguments[index] for index in range(count.value)]
+    finally:
+        release(ctypes.cast(arguments, ctypes.c_void_p))
 
 # ------------------------------------------------------------------------------
 def getenv_boolean_flag(name: str) -> bool:
@@ -203,7 +234,7 @@ class ClangTidyCacheOpts:
             try:
                 if os.path.samefile(filename, db_filename):
                     try:
-                        return shlex.split(command["command"])
+                        return split_command(command["command"])
                     except KeyError:
                         try:
                             return command["arguments"]
