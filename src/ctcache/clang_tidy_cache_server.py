@@ -892,7 +892,7 @@ def ctc_is_cached(hashstr):
 def ctc_purge_cache():
     # Deny GET if auth_key_writes is configured
     # In a future update this API can only be called with a DELETE HTTP method
-    if flask.request.method != 'GET' and clang_tidy_cache.auth_key_writes:
+    if clang_tidy_cache.auth_key_writes:
         return flask.abort(403)
     return str(clang_tidy_cache.do_purge())
 # ------------------------------------------------------------------------------
@@ -998,9 +998,14 @@ if __name__ == "__main__":
             host="0.0.0.0",
             port=options.port_number)
     else:
+        import signal
+        import gevent
         from gevent.pywsgi import WSGIServer
-        srvr = WSGIServer(("0.0.0.0", options.port_number), ctcache_app)
+        srvr = WSGIServer(("0.0.0.0", options.port_number), ctcache_app, log=None)
+        gevent.signal_handler(signal.SIGTERM, srvr.stop, timeout=10)
         try: srvr.serve_forever()
         except KeyboardInterrupt:
             pass
+        finally:
+            clang_tidy_cache.do_save()
 # ------------------------------------------------------------------------------
