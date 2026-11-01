@@ -129,6 +129,7 @@ variables:
 | `CTCACHE_LOCAL`                   |  ✓   |      | enables the local cache                                          |
 | `CTCACHE_LOG_LEVEL`               |  ✓   |      | set the log level: (critical, error, warning, info, debug)       |
 | `CTCACHE_NO_LOCAL_STATS`          |  ✓   |      | disables keeping local cache statistics                          |
+| `CTCACHE_STATS_DIR`               |  ✓   |      | the local statistics directory, `CTCACHE_DIR` by default         |
 | `CTCACHE_NO_LOCAL_WRITEBACK`      |  ✓   |      | disables storage of remote cache hits to the local cache         |
 | `CTCACHE_S3_BUCKET`               |  ✓   |      | the S3 bucket to store cache remotely                            |
 | `CTCACHE_S3_FOLDER`               |  ✓   |      | the prefix directory in S3, w/o leading and trailing `/`         |

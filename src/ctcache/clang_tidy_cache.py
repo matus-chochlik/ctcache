@@ -278,6 +278,11 @@ class ClangTidyCacheOpts:
         )
         return self._cache_dir
 
+    # --------------------------------------------------------------------------
+    @property
+    def stats_dir(self) -> os.PathLike:
+        return os.getenv("CTCACHE_STATS_DIR", self.cache_dir)
+
      # --------------------------------------------------------------------------
     def strip_paths(self, text: str) -> str:
         for item in self._strip_list:
@@ -663,7 +668,7 @@ class ClangTidyCacheStats:
 
     # --------------------------------------------------------------------------
     def stats_file(self, digest):
-        return os.path.join(self._opts.cache_dir, digest[:2], self._name)
+        return os.path.join(self._opts.stats_dir, digest[:2], self._name)
 
     # --------------------------------------------------------------------------
     def read(self):
