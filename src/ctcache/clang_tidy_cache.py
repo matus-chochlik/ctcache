@@ -774,8 +774,19 @@ class ClangTidyLocalCache:
     def store_in_cache_with_data(self, digest, data: bytes):
         p = self._make_path(digest)
         mkdir_p(os.path.dirname(p))
-        with open(p, "wb") as stream:
-            stream.write(data)
+        fd, tmp = tempfile.mkstemp(dir=os.path.dirname(p), prefix=".tmp-")
+        try:
+            with open(fd, "wb") as stream:
+                stream.write(data)
+            os.replace(tmp, p)  # concurrent readers see the old entry or the whole new one
+        except PermissionError:
+            os.unlink(tmp)
+            if not os.path.isfile(p):
+                raise
+            # Windows: a reader holds the entry open; it already caches this digest
+        except BaseException:
+            os.unlink(tmp)
+            raise
 
     # --------------------------------------------------------------------------
     def _list_cached_files(self, options, base_dir):
