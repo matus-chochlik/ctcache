@@ -99,7 +99,7 @@ class ClangTidyCacheOpts:
         self._cache_dir = None
         self._compile_commands_db = None
 
-        self._strip_list = os.getenv("CTCACHE_STRIP", "").split(os.pathsep)
+        self._strip_list = [item for item in os.getenv("CTCACHE_STRIP", "").split(os.pathsep) if item]
 
         args = self._split_compiler_clang_tidy_args(args)
         self._adjust_compiler_args()
@@ -1302,7 +1302,7 @@ def hash_inputs(log, opts):
     # --- Source file content (potentially pre-processed)
     if len(co_args) == 0:
         for arg in ct_args[1:]:
-            if os.path.exists(arg) and _is_src_ext(arg):
+            if _is_src_ext(arg) and os.path.exists(arg):
                 with open(arg, "rb") as srcfd:
                     src_data_binary = srcfd.read()
                     if opts.strip_src():
@@ -1340,7 +1340,7 @@ def hash_inputs(log, opts):
         # (which may not alter preprocessed output due to include guards) still invalidate the cache.
         # This prevents stale results from checks like misc-include-cleaner that inspect the source directly.
         for arg in ct_args[1:]:
-            if os.path.exists(arg) and _is_src_ext(arg):
+            if _is_src_ext(arg) and os.path.exists(arg):
                 try:
                     with open(arg, "r", encoding="utf-8", errors="replace") as srcfd:
                         for line in srcfd:
@@ -1359,7 +1359,7 @@ def hash_inputs(log, opts):
     source_files = []
 
     for arg in ct_args[1:]:
-        if os.path.exists(arg) and _is_src_ext(arg):
+        if _is_src_ext(arg) and os.path.exists(arg):
             source_files.append(os.path.normpath(os.path.realpath(arg)))
         else:
             ct_args_flags.append(arg)
