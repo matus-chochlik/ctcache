@@ -357,6 +357,10 @@ class ClangTidyCacheOpts:
         return getenv_boolean_flag("CTCACHE_NO_LOCAL_WRITEBACK")
 
     # --------------------------------------------------------------------------
+    def readonly_caches(self) -> List[str]:
+        return [d for d in os.getenv("CTCACHE_READONLY_CACHES", "").split(os.pathsep) if d]
+
+    # --------------------------------------------------------------------------
     def has_host(self) -> bool:
         return "CTCACHE_HOST" in os.environ
 
@@ -809,6 +813,44 @@ class ClangTidyLocalCache:
         return os.path.join(self._opts.cache_dir, digest[:2], digest[2:])
 
 # ------------------------------------------------------------------------------
+class ClangTidyReadOnlyDirCache(ClangTidyLocalCache):
+    """Read-only cache dir with the same layout as the local cache.
+    It is never written to. Hits are copied to the local cache."""
+
+    # --------------------------------------------------------------------------
+    def __init__(self, log, opts, cache_dir):
+        super().__init__(log, opts)
+        self._cache_dir = cache_dir
+
+    # --------------------------------------------------------------------------
+    def is_cached(self, digest):
+        return os.path.isfile(self._make_path(digest))
+
+    # --------------------------------------------------------------------------
+    def get_cache_data(self, digest) -> Optional[bytes]:
+        path = self._make_path(digest)
+        if os.path.isfile(path):
+            with open(path, "rb") as stream:
+                return stream.read()
+        return None
+
+    # --------------------------------------------------------------------------
+    def store_in_cache(self, digest):
+        pass
+
+    # --------------------------------------------------------------------------
+    def store_in_cache_with_data(self, digest, data: bytes):
+        pass
+
+    # --------------------------------------------------------------------------
+    def query_stats(self, options) -> dict:
+        return {}
+
+    # --------------------------------------------------------------------------
+    def _make_path(self, digest):
+        return os.path.join(self._cache_dir, digest[:2], digest[2:])
+
+# ------------------------------------------------------------------------------
 class ClangTidyRedisCache:
     # --------------------------------------------------------------------------
     def __init__(self, log, opts: ClangTidyCacheOpts):
@@ -1137,7 +1179,12 @@ class ClangTidyCache:
         if opts.has_gcs():
             caches.append(ClangTidyGcsCache(log, opts))
 
-        if not caches or opts.cache_locally():
+        # read-only dirs do not replace the local cache
+        has_remote_cache = bool(caches)
+        for cache_dir in opts.readonly_caches():
+            caches.append(ClangTidyReadOnlyDirCache(log, opts, cache_dir))
+
+        if not has_remote_cache or opts.cache_locally():
             local = ClangTidyLocalCache(log, opts)
             self._local = self._wrap_with_stats(local, "stats")
 
