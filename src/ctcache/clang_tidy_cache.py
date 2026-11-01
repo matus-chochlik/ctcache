@@ -162,7 +162,7 @@ class ClangTidyCacheOpts:
                 self._compiler_args = self._compiler_args_for(filenames[0])
         else:
             # Invoked as pure clang-tidy command
-            self._clang_tidy_args = args[1:]
+            self._clang_tidy_args = args
         return args
 
     # --------------------------------------------------------------------------
