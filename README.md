@@ -126,6 +126,7 @@ variables:
 | `CTCACHE_SAVE_OUTPUT`             |  ✓   |      | saves the stdout output of `clang-tidy` in the cache             |
 | `CTCACHE_SAVE_ALL`                |  ✓   |      | save the output even when `clang-tidy` exited with error         |
 | `CTCACHE_KEEP_COMMENTS`           |  ✓   |      | include source comments (e.g. `NOLINT`) in the hash              |
+| `CTCACHE_HASH_INCLUDED_FILES`     |  ✓   |      | hash every file the preprocessor read, comments included; GCC/Clang only |
 | `CTCACHE_LOCAL`                   |  ✓   |      | enables the local cache                                          |
 | `CTCACHE_LOG_LEVEL`               |  ✓   |      | set the log level: (critical, error, warning, info, debug)       |
 | `CTCACHE_NO_LOCAL_STATS`          |  ✓   |      | disables keeping local cache statistics                          |
