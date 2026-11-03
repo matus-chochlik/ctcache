@@ -421,6 +421,10 @@ class ClangTidyCacheOpts:
         return getenv_boolean_flag("CTCACHE_KEEP_COMMENTS")
 
     # --------------------------------------------------------------------------
+    def hash_included_files(self) -> bool:
+        return getenv_boolean_flag("CTCACHE_HASH_INCLUDED_FILES")
+
+    # --------------------------------------------------------------------------
     def exclude_hash_regex(self) -> str:
         return os.getenv("CTCACHE_EXCLUDE_HASH_REGEX")
 
@@ -1279,6 +1283,13 @@ def remove_matching_line(byte_stream, pattern):
     return filtered_text.encode("utf-8")
 
 # ------------------------------------------------------------------------------
+def _line_marker_files(preprocessed: bytes) -> List[str]:
+    """Existing files named by the line markers, in order of first appearance."""
+    names = re.findall(rb'^# \d+ "((?:[^"\\]|\\.)*)"', preprocessed, re.MULTILINE)
+    files = dict.fromkeys(os.fsdecode(re.sub(rb'\\(.)', rb'\1', name)) for name in names)
+    return [name for name in files if os.path.isfile(name)]
+
+# ------------------------------------------------------------------------------
 def hash_inputs(log, opts):
     ct_args = opts.clang_tidy_args()
     co_args = opts.compiler_args()
@@ -1328,6 +1339,11 @@ def hash_inputs(log, opts):
             if stderr:
                 log.error(f"Error executing compile command: #{co_args}.\n#{stderr}")
                 return None
+
+        if opts.hash_included_files():
+            for included_file in _line_marker_files(stdout):
+                with open(included_file, "rb") as included:
+                    result.update(included.read())
 
         if opts.strip_src():
             stdout_str = stdout.decode(encoding="utf-8")
